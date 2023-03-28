@@ -41,6 +41,9 @@ let powerPadding=2;
 let rootScale=0.5;
 let rootPadding=3;
 let rootDistance=12;
+let matrixPadding=4;
+let matrixPaddingX=12;
+let matrixPaddingY=16;
 
 function measure(ctx,mathElement,baseSize=50,scale=1.0){
   ctx.font=baseSize*scale+"px math";
@@ -98,7 +101,7 @@ function measure(ctx,mathElement,baseSize=50,scale=1.0){
         mathElement.innerBox.y0-fracPaddingY*scale,
         mathElement.innerBox.x1+fracPaddingX*scale,
         mathElement.innerBox.y1+fracPaddingY*scale);
-      break;      
+      break;
     case "SUP":{//base exponent
       let base=mathElement.elts[0];
       let exp=mathElement.elts[1];
@@ -113,7 +116,7 @@ function measure(ctx,mathElement,baseSize=50,scale=1.0){
       mathElement.outerBox=new Box(mathElement.innerBox.x0-powerPadding*scale,
         mathElement.innerBox.y0-powerPadding*scale,
         mathElement.innerBox.x1+powerPadding*scale,
-        mathElement.innerBox.y1+powerPadding*scale);      
+        mathElement.innerBox.y1+powerPadding*scale);
       }break;
     case "SUB":{//base subscript
       let base=mathElement.elts[0];
@@ -129,10 +132,12 @@ function measure(ctx,mathElement,baseSize=50,scale=1.0){
       mathElement.outerBox=new Box(mathElement.innerBox.x0-powerPadding*scale,
         mathElement.innerBox.y0-powerPadding*scale,
         mathElement.innerBox.x1+powerPadding*scale,
-        mathElement.innerBox.y1+powerPadding*scale);      
+        mathElement.innerBox.y1+powerPadding*scale);
       }break;
-    //XXX SUBSUP
-    case "ROOT"://root value
+    case "SUBSUP"://TODO SUBSUP
+      console.log("UNIMPLEMENTED:"+mathElement.type);
+      break;
+    case "ROOT":{//root value
       let root=mathElement.elts[0];
       let value=mathElement.elts[1];
       measure(ctx,root,baseSize,scale*rootScale);
@@ -143,13 +148,56 @@ function measure(ctx,mathElement,baseSize=50,scale=1.0){
         Math.max(root.outerBox.w,rootDistance/3)+rootDistance+value.outerBox.w,
         value.outerBox.y1
       );
-      mathElement.outerBox=mathElement.innerBox;//XXX padding
-      break;
+      mathElement.outerBox=new Box(mathElement.innerBox.x0-rootPadding*scale,
+        mathElement.innerBox.y0-rootPadding*scale,
+        mathElement.innerBox.x1+rootPadding*scale,
+        mathElement.innerBox.y1+rootPadding*scale);
+      }break;
+    case "VECTOR":{
+      let maxW=0,h=matrixPaddingY*(mathElement.elts.length-1)*scale;
+      mathElement.elts.forEach((e)=>{
+        measure(ctx,e,baseSize,scale);
+        maxW=Math.max(e.outerBox.w,maxW);
+        h+=e.outerBox.h;
+      });
+      mathElement.innerBox=new Box(0,-h/2,maxW,h/2);
+      mathElement.outerBox=new Box(mathElement.innerBox.x0-matrixPadding*scale,
+        mathElement.innerBox.y0-matrixPadding*scale,
+        mathElement.innerBox.x1+matrixPadding*scale,
+        mathElement.innerBox.y1+matrixPadding*scale);
+      }break;
+    case "MATRIX":{
+      let w=0;
+      let rowHeights=new Array(mathElement.elts[0].elts.length).fill(0);
+      mathElement.elts.forEach((e)=>{
+        let maxW=0,h=matrixPaddingY*(e.elts.length-1)*scale;
+        for(let r=0;r<e.elts.length;r++){
+          f=e.elts[r];
+          measure(ctx,f,baseSize,scale);
+          maxW=Math.max(f.outerBox.w,maxW);
+          h+=f.outerBox.h;
+          rowHeights[r]=Math.max(rowHeights[r],f.outerBox.h);
+        };
+        e.innerBox=new Box(0,-h/2,maxW,h/2);
+        w+=maxW+matrixPaddingX*scale;
+      });
+      w-=matrixPaddingX*scale;//remove padding after last element
+      let h=matrixPaddingY*(rowHeights.length-1)*scale;
+      rowHeights.forEach((e)=>{h+=e;});
+      mathElement.elts.forEach((e)=>{
+        e.innerBox=new Box(e.innerBox.x0,-h/2,e.innerBox.x1,h/2);
+        e.outerBox=e.innerBox;
+      });
+      mathElement.rowHeights=rowHeights;
+      mathElement.innerBox=new Box(0,-h/2,w,h/2);
+      mathElement.outerBox=new Box(mathElement.innerBox.x0-matrixPadding*scale,
+        mathElement.innerBox.y0-matrixPadding*scale,
+        mathElement.innerBox.x1+matrixPadding*scale,
+        mathElement.innerBox.y1+matrixPadding*scale);
+      }break;
     case "UNDER":
     case "OVER":
     case "LIMITS":
-    case "VECTOR":
-    case "MATRIX":
       console.log("UNIMPLEMENTED:"+mathElement.type);
       break;
     case "FUNC":
@@ -164,16 +212,15 @@ function measure(ctx,mathElement,baseSize=50,scale=1.0){
       break;
   }
 }
+let drawBoundingBoxes=false;
 function drawMathElementInternal(ctx,mathElement,x,y,baseSize,scale=1.0){
-  /*
-  //DEBUG
-  ctx.strokeStyle="#ff0000";
-  ctx.strokeRect(x+mathElement.outerBox.x0,y+mathElement.outerBox.y0,mathElement.outerBox.w,mathElement.outerBox.h);
-  ctx.strokeStyle="#00ff00";
-  ctx.strokeRect(x+mathElement.innerBox.x0,y+mathElement.innerBox.y0,mathElement.innerBox.w,mathElement.innerBox.h);
-  ctx.strokeStyle="#ffffff";
-  //END DEBUG
-  */
+  if(drawBoundingBoxes){
+    ctx.strokeStyle="#ff0000";
+    ctx.strokeRect(x+mathElement.outerBox.x0,y+mathElement.outerBox.y0,mathElement.outerBox.w,mathElement.outerBox.h);
+    ctx.strokeStyle="#00ff00";
+    ctx.strokeRect(x+mathElement.innerBox.x0,y+mathElement.innerBox.y0,mathElement.innerBox.w,mathElement.innerBox.h);
+    ctx.strokeStyle="#ffffff";
+  }
   ctx.font=baseSize*scale+"px math";
   switch(mathElement.type){
     case "NUMBER":
@@ -193,12 +240,81 @@ function drawMathElementInternal(ctx,mathElement,x,y,baseSize,scale=1.0){
       });
       if(mathElement.type=="PAREN"){//TODO improve drawing of parenthesis
         let cy=y+(mathElement.outerBox.y0+mathElement.outerBox.y1)/2;
-        ctx.beginPath();
-        ctx.ellipse(x,cy,parenWidth,mathElement.outerBox.h/2,0,2*Math.PI/3,-2*Math.PI/3);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.ellipse(x+mathElement.innerBox.w,cy,parenWidth,mathElement.outerBox.h/2,0,-Math.PI/3,Math.PI/3);
-        ctx.stroke();
+        switch(mathElement.content[0]){
+          case '('://XXX ! ensure bracket fills whole height
+            ctx.beginPath();
+            ctx.ellipse(x,cy,parenWidth,mathElement.outerBox.h/2,0,2*Math.PI/3,-2*Math.PI/3);
+            ctx.stroke();
+            break;
+          case '[':
+            ctx.beginPath();
+            ctx.moveTo(x+mathElement.innerBox.x0,y+mathElement.outerBox.y0);
+            ctx.lineTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.outerBox.y0);
+            ctx.lineTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.outerBox.y1);
+            ctx.lineTo(x+mathElement.innerBox.x0,y+mathElement.outerBox.y1);
+            ctx.stroke();
+            break;
+          case '⌊':
+            ctx.beginPath();
+            ctx.moveTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.outerBox.y0);
+            ctx.lineTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.outerBox.y1);
+            ctx.lineTo(x+mathElement.innerBox.x0,y+mathElement.outerBox.y1);
+            ctx.stroke();
+            break;
+          case '⌈':
+            ctx.beginPath();
+            ctx.moveTo(x+mathElement.innerBox.x0,y+mathElement.outerBox.y0);
+            ctx.lineTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.outerBox.y0);
+            ctx.lineTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.outerBox.y1);
+            ctx.stroke();
+            break;
+          case '|':
+            ctx.beginPath();
+            ctx.moveTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.innerBox.y0);
+            ctx.lineTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.innerBox.y1);
+            ctx.stroke();
+            break;
+            // set brackets , < >
+          default:
+            console.log("unsupported opening bracket: '"+mathElement.content[0]+"'");
+        }
+        switch(mathElement.content[1]){
+          case ')':
+            ctx.beginPath();
+            ctx.ellipse(x+mathElement.innerBox.w,cy,parenWidth,mathElement.outerBox.h/2,0,-Math.PI/3,Math.PI/3);
+            ctx.stroke();
+            break;
+          case ']':
+            ctx.beginPath();
+            ctx.moveTo(x+mathElement.innerBox.x1,y+mathElement.outerBox.y0);
+            ctx.lineTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.outerBox.y0);
+            ctx.lineTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.outerBox.y1);
+            ctx.lineTo(x+mathElement.innerBox.x1,y+mathElement.outerBox.y1);
+            ctx.stroke();
+            break;
+          case '⌋':
+            ctx.beginPath();
+            ctx.moveTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.outerBox.y0);
+            ctx.lineTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.outerBox.y1);
+            ctx.lineTo(x+mathElement.innerBox.x1,y+mathElement.outerBox.y1);
+            ctx.stroke();
+            break;
+          case '⌉':
+            ctx.beginPath();
+            ctx.moveTo(x+mathElement.innerBox.x1,y+mathElement.outerBox.y0);
+            ctx.lineTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.outerBox.y0);
+            ctx.lineTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.outerBox.y1);
+            ctx.stroke();
+            break;
+          case '|':
+            ctx.beginPath();
+            ctx.moveTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.innerBox.y0);
+            ctx.lineTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.innerBox.y1);
+            ctx.stroke();
+            break;
+          default:
+            console.log("unsupported closing bracket: '"+mathElement.content[1]+"'");
+        }
       }
       break;
     case "FRAC":// [a,b]
@@ -239,11 +355,31 @@ function drawMathElementInternal(ctx,mathElement,x,y,baseSize,scale=1.0){
       ctx.lineTo(x+mathElement.outerBox.x1,y+mathElement.outerBox.y0);
       ctx.stroke();
     }break;
+    case "VECTOR":{
+      let h=mathElement.innerBox.y0;
+      let cx=x+(mathElement.outerBox.x0+mathElement.outerBox.x1)/2;
+      mathElement.elts.forEach((e)=>{
+        drawMathElementInternal(ctx,e,cx-(e.outerBox.x0+e.outerBox.x1)/2,y+h-e.outerBox.y0,baseSize,scale);
+        h+=e.outerBox.h+matrixPaddingY*scale;
+      });
+      }break;
+    case "MATRIX":{
+      let w=mathElement.innerBox.x0;
+      mathElement.elts.forEach((e)=>{
+        let cx=x+w+(e.outerBox.x0+e.outerBox.x1)/2;
+        let h=mathElement.innerBox.y0;
+        for(let r=0;r<e.elts.length;r++){
+          let f=e.elts[r];
+          let cy=y+h+mathElement.rowHeights[r]/2;
+          drawMathElementInternal(ctx,f,cx-(f.outerBox.x0+f.outerBox.x1)/2,cy-(f.outerBox.y0+f.outerBox.y1)/2,baseSize,scale);
+          h+=mathElement.rowHeights[r]+matrixPaddingY*scale;
+        }
+        w+=e.outerBox.w+matrixPaddingX*scale;
+      });
+      }break;
     case "UNDER":
     case "OVER":
     case "LIMITS":
-    case "VECTOR":
-    case "MATRIX":
       console.log("UNIMPLEMENTED:"+mathElement.type);
       break;
     case "SQRT":
@@ -452,10 +588,10 @@ function stringToElements(str){
       if(greek.has(funcName)){//greek letters
         elements[i+1].content=greek.get(funcName);
         elements.splice(i,1);
-      }else if(constants.has(funcName)){//constants 
+      }else if(constants.has(funcName)){//constants
         elements[i+1].content=constants.get(funcName);
         elements.splice(i,1);
-      }else if(func_operators.has(funcName)){//constants 
+      }else if(func_operators.has(funcName)){//constants
         elements[i+1].type="OPERATOR";
         elements[i+1].content=func_operators.get(funcName);
         elements.splice(i,1);
@@ -489,12 +625,33 @@ function stringToElements(str){
             elements[i].elts=[center,from,to];
             elements.splice(i+1,3);
             break;
-          case "matrix":
           case "vector":
             elements[i].type=funcName.toUpperCase();
             elements[i].elts=(elements[i+2]||emptyElt()).elts;
             elements.splice(i+1,2);
             break;
+          case "matrix":{
+            elements[i].type=funcName.toUpperCase();
+            let matrix=(elements[i+2]||emptyElt()).elts;
+            let nrows=matrix.length;
+            let ncolums=0;
+            matrix.forEach((e)=>{
+              ncolums=Math.max(ncolums,(e.elts||[]).length);
+            });
+            elements[i].elts=[];
+            for(let c=0;c<ncolums;c++){
+              elements[i].elts.push([]);
+              for(let r=0;r<nrows;r++){
+                if((matrix[r].elts||[]).length<=c){
+                  elements[i].elts[c].push(emptyElt());
+                  continue;
+                }
+                elements[i].elts[c].push(matrix[r].elts[c]);
+              }
+              elements[i].elts[c]=new MathElement("VECTOR",undefined,elements[i].elts[c]);
+            }
+            elements.splice(i+1,2);
+            }break;
             //TODO add \underover
           case "root":
           case "under":
@@ -563,5 +720,5 @@ function stringToElements(str){
       elements.splice(i,1);
     }
   }
-  return elements;   
+  return elements;
 }
