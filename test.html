@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<body>
+<canvas id="canvas" width="1980" height="1080" style="position:fixed;top:0px;left:0px;width:100vw;height:100vh;background:#222222;color:#ffffff;">
+Canvas not supported
+</canvas>
+<input style="position:relative;z-index:1;background:#00000000;color:#ffffff;" type="text" id="input" contenteditable="true"/>
+</body>
+<script src="./mexpr.js"></script>
+<script>
+const c=document.getElementById("canvas");
+const ctx=c.getContext("2d");
+ctx.font="20pt math";
+ctx.strokeStyle="#ff0000";
+ctx.fillStyle="#ffffff";
+
+const iField = document.getElementById("input");
+iField.addEventListener("keyup", function(event) {
+    if (event.key === "Enter") {
+        eq=stringToElement(iField.value);
+        redraw();
+    }
+});
+if(!iField.value)
+  iField.value="{{-b\\pm \\sqrt {b²-4 a c}}/{2 a}}";
+
+let eq=stringToElement("\\pi=3+1 / { 7 + (1/ { 15 +1 / { 1 + 1/{292+1 /... }}})}");
+function redraw(){
+  ctx.clearRect(0,0,c.width,c.height);
+  drawMathElement(ctx,eq,300,300);
+}
+redraw();
+</script>
+</html>
