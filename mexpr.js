@@ -19,11 +19,29 @@ class MathElement {
     this.attributes = new Map([]);
     this.innerBox=undefined;
     this.outerBox=undefined;
+    this.x=undefined;
+    this.y=undefined;
   }
   forEach(f){
     f(this);
     if(this.elts)
       this.elts.forEach((e)=>{e.forEach(f)});
+  }
+
+  moveTo(x=0,y=0){
+    this.moveElements(x-this.x,y-this.y);
+    this.x=x;
+    this.y=y;
+  }
+  moveBy(x=0,y=0){
+    this.x+=x;
+    this.y+=y;
+    this.moveElements(x,y);
+  }
+  moveElements(x=0,y=0){
+    if(this.elts!==undefined){
+      this.elts.forEach((e)=>{e.moveBy(x,y)});
+    }
   }
 }
 
@@ -45,12 +63,17 @@ let matrixPadding=4;
 let matrixPaddingX=12;
 let matrixPaddingY=16;
 
-function measure(ctx,mathElement,baseSize=50,scale=1.0){
+function measure(ctx,mathElement,baseSize=50){
+  measureRecursive(ctx,mathElement,0,0,baseSize);
+}
+function measureRecursive(ctx,mathElement,x,y,baseSize=50,scale=1.0){
   ctx.font=baseSize*scale+"px math";
+  mathElement.x=x;
+  mathElement.y=y;
   switch(mathElement.type){
     case "NUMBER":
     case "OPERATOR":
-    case "VAR":
+    case "VAR":{//XXX make text bounding box relative to text position
       let boxSize=ctx.measureText(mathElement.content);
       let t_x0=boxSize.actualBoundingBoxLeft,t_x1=boxSize.actualBoundingBoxRight,t_y0=boxSize.actualBoundingBoxDescent,t_y1=boxSize.actualBoundingBoxAscent;
       let x0=0,x1=boxSize.width;
@@ -63,18 +86,24 @@ function measure(ctx,mathElement,baseSize=50,scale=1.0){
         mathElement.innerBox=new Box(x0,y0,x1,y1);
         mathElement.outerBox=mathElement.innerBox;
       }
-      break;
+      mathElement.x+=mathElement.innerBox.x0;
+      }break;
     case "ROW":
-    case "PAREN":
+    case "PAREN":{
+      let x0=x;
       let minX=undefined,minY=Infinity,w=0,maxY=-Infinity;
       mathElement.elts.forEach((e)=>{
-        measure(ctx,e,baseSize,scale);
+        measureRecursive(ctx,e,x0,y,baseSize,scale);
+        if(e.outerBox.x0!=0){
+          e.moveBy(-e.outerBox.x0,0);
+        }
         if(minX===undefined){
           minX=e.x0;
         }
         minY=Math.min(e.outerBox.y0,minY);
         maxY=Math.max(e.outerBox.y1,maxY);
         w+=e.outerBox.w;
+        x0+=e.outerBox.w;
       });
       if(minX===undefined)
         minX=0;
@@ -86,12 +115,12 @@ function measure(ctx,mathElement,baseSize=50,scale=1.0){
       }else{
         mathElement.outerBox=mathElement.innerBox;
       }
-      break;
-    case "FRAC":// [a,b]
+      }break;
+    case "FRAC":{// [a,b]
       let a=mathElement.elts[0];
       let b=mathElement.elts[1];
-      measure(ctx,a,baseSize,scale*fractionScale);
-      measure(ctx,b,baseSize,scale*fractionScale);
+      measureRecursive(ctx,a,0,0,baseSize,scale*fractionScale);
+      measureRecursive(ctx,b,0,0,baseSize,scale*fractionScale);
       mathElement.innerBox=new Box(
         Math.min(a.outerBox.x0,b.outerBox.x0),
         -a.outerBox.h-scale*fracPaddingY,
@@ -101,12 +130,16 @@ function measure(ctx,mathElement,baseSize=50,scale=1.0){
         mathElement.innerBox.y0-fracPaddingY*scale,
         mathElement.innerBox.x1+fracPaddingX*scale,
         mathElement.innerBox.y1+fracPaddingY*scale);
-      break;
+      let cx=x+(mathElement.outerBox.x0+mathElement.outerBox.x1)/2,cy=y;
+      a.moveTo(cx-(a.innerBox.x0+a.innerBox.x1)/2,cy-scale*fracPaddingY-a.outerBox.y1);
+      b.moveTo(cx-(b.innerBox.x0+b.innerBox.x1)/2,cy+scale*fracPaddingY-b.outerBox.y0);
+      }break;
     case "SUP":{//base exponent
       let base=mathElement.elts[0];
       let exp=mathElement.elts[1];
-      measure(ctx,base,baseSize,scale);
-      measure(ctx,exp,baseSize,scale*exponentScale);
+      x+=powerPadding*scale;
+      measureRecursive(ctx,base,x,y,baseSize,scale);
+      measureRecursive(ctx,exp,x,y,baseSize,scale*exponentScale);
       mathElement.innerBox=new Box(
         base.outerBox.x0,
         base.outerBox.y0-exp.outerBox.h+(exponentIndent*baseSize*scale*exponentScale),//set exponent half size below top line
@@ -117,22 +150,25 @@ function measure(ctx,mathElement,baseSize=50,scale=1.0){
         mathElement.innerBox.y0-powerPadding*scale,
         mathElement.innerBox.x1+powerPadding*scale,
         mathElement.innerBox.y1+powerPadding*scale);
+      exp.moveBy(base.outerBox.x1-exp.outerBox.x0+scale*exponentPadding,mathElement.innerBox.y0-exp.outerBox.y0);
       }break;
     case "SUB":{//base subscript
       let base=mathElement.elts[0];
-      let exp=mathElement.elts[1];
-      measure(ctx,base,baseSize,scale);
-      measure(ctx,exp,baseSize,scale*exponentScale);
+      let sub=mathElement.elts[1];
+      x+=powerPadding*scale;
+      measureRecursive(ctx,base,x,y,baseSize,scale);
+      measureRecursive(ctx,sub,x,y,baseSize,scale*exponentScale);
       mathElement.innerBox=new Box(
         base.outerBox.x0,
         base.outerBox.y0,
-        base.outerBox.x1+scale*exponentPadding+exp.outerBox.w,
-        base.outerBox.y1+exp.outerBox.h-(exponentIndent*baseSize*scale*exponentScale)
+        base.outerBox.x1+scale*exponentPadding+sub.outerBox.w,
+        base.outerBox.y1+sub.outerBox.h-(exponentIndent*baseSize*scale*exponentScale)
       );
       mathElement.outerBox=new Box(mathElement.innerBox.x0-powerPadding*scale,
         mathElement.innerBox.y0-powerPadding*scale,
         mathElement.innerBox.x1+powerPadding*scale,
         mathElement.innerBox.y1+powerPadding*scale);
+      sub.moveBy(base.outerBox.x1-sub.outerBox.x0+scale*exponentPadding,mathElement.innerBox.y1-sub.outerBox.y1);
       }break;
     case "SUBSUP"://TODO SUBSUP
       console.log("UNIMPLEMENTED:"+mathElement.type);
@@ -140,8 +176,10 @@ function measure(ctx,mathElement,baseSize=50,scale=1.0){
     case "ROOT":{//root value
       let root=mathElement.elts[0];
       let value=mathElement.elts[1];
-      measure(ctx,root,baseSize,scale*rootScale);
-      measure(ctx,value,baseSize,scale);
+      measureRecursive(ctx,root,0,0,baseSize,scale*rootScale);
+      root.moveBy(-root.outerBox.x0,-root.outerBox.y1-rootPadding);
+      measureRecursive(ctx,value,x,y,baseSize,scale);
+      value.moveBy(Math.max(root.outerBox.w,rootDistance/3)+rootDistance-value.outerBox.x0,0);
       mathElement.innerBox=new Box(
         0,
         Math.min(-root.outerBox.y1,value.outerBox.y0)-rootPadding,
@@ -156,7 +194,7 @@ function measure(ctx,mathElement,baseSize=50,scale=1.0){
     case "VECTOR":{
       let maxW=0,h=matrixPaddingY*(mathElement.elts.length-1)*scale;
       mathElement.elts.forEach((e)=>{
-        measure(ctx,e,baseSize,scale);
+        measureRecursive(ctx,e,0,0,baseSize,scale);
         maxW=Math.max(e.outerBox.w,maxW);
         h+=e.outerBox.h;
       });
@@ -165,6 +203,12 @@ function measure(ctx,mathElement,baseSize=50,scale=1.0){
         mathElement.innerBox.y0-matrixPadding*scale,
         mathElement.innerBox.x1+matrixPadding*scale,
         mathElement.innerBox.y1+matrixPadding*scale);
+      let cx=x+(mathElement.outerBox.x0+mathElement.outerBox.x1)/2;
+      h=mathElement.innerBox.y0;
+      mathElement.elts.forEach((e)=>{
+        e.moveTo(cx-(e.outerBox.x0+e.outerBox.x1)/2,y+h-e.outerBox.y0);
+        h+=e.outerBox.h+matrixPaddingY*scale;
+      });
       }break;
     case "MATRIX":{
       let w=0;
@@ -173,7 +217,7 @@ function measure(ctx,mathElement,baseSize=50,scale=1.0){
         let maxW=0,h=matrixPaddingY*(e.elts.length-1)*scale;
         for(let r=0;r<e.elts.length;r++){
           f=e.elts[r];
-          measure(ctx,f,baseSize,scale);
+          measureRecursive(ctx,f,x,y,baseSize,scale);
           maxW=Math.max(f.outerBox.w,maxW);
           h+=f.outerBox.h;
           rowHeights[r]=Math.max(rowHeights[r],f.outerBox.h);
@@ -194,6 +238,19 @@ function measure(ctx,mathElement,baseSize=50,scale=1.0){
         mathElement.innerBox.y0-matrixPadding*scale,
         mathElement.innerBox.x1+matrixPadding*scale,
         mathElement.innerBox.y1+matrixPadding*scale);
+      //compute element positions
+      w=mathElement.innerBox.x0;
+      mathElement.elts.forEach((e)=>{
+        let cx=x+w+(e.outerBox.x0+e.outerBox.x1)/2;
+        let h=mathElement.innerBox.y0;
+        for(let r=0;r<e.elts.length;r++){
+          let f=e.elts[r];
+          let cy=y+h+mathElement.rowHeights[r]/2;
+          f.moveTo(cx-(f.outerBox.x0+f.outerBox.x1)/2,cy-(f.outerBox.y0+f.outerBox.y1)/2);
+          h+=mathElement.rowHeights[r]+matrixPaddingY*scale;
+        }
+        w+=e.outerBox.w+matrixPaddingX*scale;
+      });
       }break;
     case "UNDER":
     case "OVER":
@@ -214,6 +271,10 @@ function measure(ctx,mathElement,baseSize=50,scale=1.0){
 }
 let drawBoundingBoxes=false;
 function drawMathElementInternal(ctx,mathElement,x,y,baseSize,scale=1.0){
+  let baseX=x;
+  let baseY=y;
+  x+=mathElement.x;
+  y+=mathElement.y;
   if(drawBoundingBoxes){
     ctx.strokeStyle="#ff0000";
     ctx.strokeRect(x+mathElement.outerBox.x0,y+mathElement.outerBox.y0,mathElement.outerBox.w,mathElement.outerBox.h);
@@ -227,16 +288,12 @@ function drawMathElementInternal(ctx,mathElement,x,y,baseSize,scale=1.0){
     case "OPERATOR":
     case "VAR":
       // zero line of text lies exactly at height -y0
-      ctx.fillText(mathElement.content,x+mathElement.innerBox.x0,y-mathElement.innerBox.y0);
+      ctx.fillText(mathElement.content,x,y-mathElement.innerBox.y0);
       break;
     case "ROW":
     case "PAREN":
-      let x0=x;
       mathElement.elts.forEach((e)=>{
-        let prevX0=x0;
-        x0=prevX0-e.outerBox.x0;
-        drawMathElementInternal(ctx,e,x0,y,baseSize,scale);
-        x0=prevX0+e.outerBox.w;
+        drawMathElementInternal(ctx,e,baseX,baseY,baseSize,scale);
       });
       if(mathElement.type=="PAREN"){//TODO improve drawing of parenthesis
         let cy=y+(mathElement.outerBox.y0+mathElement.outerBox.y1)/2;
@@ -320,33 +377,30 @@ function drawMathElementInternal(ctx,mathElement,x,y,baseSize,scale=1.0){
     case "FRAC":// [a,b]
       let a=mathElement.elts[0];
       let b=mathElement.elts[1];
-      let cx=x+(mathElement.outerBox.x0+mathElement.outerBox.x1)/2,cy=y;
-      drawMathElementInternal(ctx,a,cx-(a.innerBox.x0+a.innerBox.x1)/2,cy-scale*fracPaddingY-a.outerBox.y1,baseSize,fractionScale*scale);
-      drawMathElementInternal(ctx,b,cx-(b.innerBox.x0+b.innerBox.x1)/2,cy+scale*fracPaddingY-b.outerBox.y0,baseSize,fractionScale*scale);
+      drawMathElementInternal(ctx,a,baseX,baseY,baseSize,fractionScale*scale);
+      drawMathElementInternal(ctx,b,baseX,baseY,baseSize,fractionScale*scale);
       ctx.beginPath();
-      ctx.moveTo(cx-mathElement.innerBox.w/2,cy);
-      ctx.lineTo(cx+mathElement.innerBox.w/2,cy);
+      ctx.moveTo(x+mathElement.innerBox.x0,y);
+      ctx.lineTo(x+mathElement.innerBox.x1,y);
       ctx.stroke();
       break;
     case "SUP":{
       let base=mathElement.elts[0];
       let exp=mathElement.elts[1];
-      x+=exponentPadding;
-      drawMathElementInternal(ctx,base,x,y,baseSize,scale);
-      drawMathElementInternal(ctx,exp,x+base.outerBox.x1-exp.outerBox.x0+scale*exponentPadding,y+mathElement.innerBox.y0-exp.outerBox.y0,baseSize,exponentScale*scale);
+      drawMathElementInternal(ctx,base,baseX,baseY,baseSize,scale);
+      drawMathElementInternal(ctx,exp,baseX,baseY,baseSize,exponentScale*scale);
       }break;
     case "SUB":{
       let base=mathElement.elts[0];
       let sub=mathElement.elts[1];
-      x+=exponentPadding;
-      drawMathElementInternal(ctx,base,x,y,baseSize,scale);
-      drawMathElementInternal(ctx,sub,x+base.outerBox.x1-sub.outerBox.x0+scale*exponentPadding,y+mathElement.innerBox.y1-sub.outerBox.y1,baseSize,exponentScale*scale);
+      drawMathElementInternal(ctx,base,baseX,baseY,baseSize,scale);
+      drawMathElementInternal(ctx,sub,baseX,baseY,baseSize,exponentScale*scale);
       }break;
     case "ROOT":{
       let root=mathElement.elts[0];
       let val=mathElement.elts[1];
-      drawMathElementInternal(ctx,root,x-root.outerBox.x0,y-root.outerBox.y1-rootPadding,baseSize,rootScale*scale);
-      drawMathElementInternal(ctx,val,x+Math.max(root.outerBox.w,rootDistance/3)+rootDistance-val.outerBox.x0,y,baseSize,scale);
+      drawMathElementInternal(ctx,root,baseX,baseY,baseSize,rootScale*scale);
+      drawMathElementInternal(ctx,val,baseX,baseY,baseSize,scale);
       ctx.beginPath();
       ctx.moveTo(x,y);
       ctx.lineTo(x+Math.max(root.outerBox.w,rootDistance/3),y);
@@ -356,25 +410,15 @@ function drawMathElementInternal(ctx,mathElement,x,y,baseSize,scale=1.0){
       ctx.stroke();
     }break;
     case "VECTOR":{
-      let h=mathElement.innerBox.y0;
-      let cx=x+(mathElement.outerBox.x0+mathElement.outerBox.x1)/2;
       mathElement.elts.forEach((e)=>{
-        drawMathElementInternal(ctx,e,cx-(e.outerBox.x0+e.outerBox.x1)/2,y+h-e.outerBox.y0,baseSize,scale);
-        h+=e.outerBox.h+matrixPaddingY*scale;
+        drawMathElementInternal(ctx,e,baseX,baseY,baseSize,scale);
       });
       }break;
     case "MATRIX":{
-      let w=mathElement.innerBox.x0;
       mathElement.elts.forEach((e)=>{
-        let cx=x+w+(e.outerBox.x0+e.outerBox.x1)/2;
-        let h=mathElement.innerBox.y0;
-        for(let r=0;r<e.elts.length;r++){
-          let f=e.elts[r];
-          let cy=y+h+mathElement.rowHeights[r]/2;
-          drawMathElementInternal(ctx,f,cx-(f.outerBox.x0+f.outerBox.x1)/2,cy-(f.outerBox.y0+f.outerBox.y1)/2,baseSize,scale);
-          h+=mathElement.rowHeights[r]+matrixPaddingY*scale;
-        }
-        w+=e.outerBox.w+matrixPaddingX*scale;
+        e.elts.forEach((f)=>{
+          drawMathElementInternal(ctx,f,baseX,baseY,baseSize,scale);
+        });
       });
       }break;
     case "UNDER":
@@ -507,7 +551,7 @@ function finishWord(str,i0,i,elements){
 }
 
 function stringToElement(str){
-  elts=stringToElements(str);
+  let elts=stringToElements(str);
   if(elts.length==1){
     return elts[0];
   }else{
