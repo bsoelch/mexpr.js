@@ -298,9 +298,9 @@ function drawMathElementInternal(ctx,mathElement,x,y,baseSize,scale=1.0){
       if(mathElement.type=="PAREN"){//TODO improve drawing of parenthesis
         let cy=y+(mathElement.outerBox.y0+mathElement.outerBox.y1)/2;
         switch(mathElement.content[0]){
-          case '('://XXX ! ensure bracket fills whole height
+          case '(':
             ctx.beginPath();
-            ctx.ellipse(x,cy,parenWidth,mathElement.outerBox.h/2,0,2*Math.PI/3,-2*Math.PI/3);
+            ctx.ellipse(x+parenWidth,cy,2*parenWidth,mathElement.innerBox.h/Math.sqrt(3),0,2*Math.PI/3,-2*Math.PI/3);
             ctx.stroke();
             break;
           case '[':
@@ -338,7 +338,7 @@ function drawMathElementInternal(ctx,mathElement,x,y,baseSize,scale=1.0){
         switch(mathElement.content[1]){
           case ')':
             ctx.beginPath();
-            ctx.ellipse(x+mathElement.innerBox.w,cy,parenWidth,mathElement.outerBox.h/2,0,-Math.PI/3,Math.PI/3);
+            ctx.ellipse(x+mathElement.innerBox.w-parenWidth,cy,2*parenWidth,mathElement.innerBox.h/Math.sqrt(3),0,-Math.PI/3,Math.PI/3);
             ctx.stroke();
             break;
           case ']':
