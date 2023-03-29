@@ -9,14 +9,98 @@ class Box{
   }
 }
 
+const frakturLetters=new Map([
+["A","𝔄"],["B","𝔅"],["C","ℭ"],["D","𝔇"],["E","𝔈"],["F","𝔉"],["G","𝔊"],["H","ℌ"],["I","ℑ"],["J","𝔍"],["K","𝔎"],["L","𝔏"],["M","𝔐"],
+["N","𝔑"],["O","𝔒"],["P","𝔓"],["Q","𝔔"],["R","ℜ"],["S","𝔖"],["T","𝔗"],["U","𝔘"],["V","𝔙"],["W","𝔚"],["X","𝔛"],["Y","𝔜"],["Z","ℨ"],
+["a","𝔞"],["b","𝔟"],["c","𝔠"],["d","𝔡"],["d","𝔢"],["f","𝔣"],["g","𝔤"],["h","𝔥"],["i","𝔦"],["j","𝔧"],["k","𝔨"],["l","𝔩"],["m","𝔪"],
+["n","𝔫"],["o","𝔬"],["p","𝔭"],["q","𝔮"],["r","𝔯"],["s","𝔰"],["t","𝔱"],["u","𝔲"],["v","𝔳"],["w","𝔴"],["x","𝔵"],["y","𝔶"],["z","𝔷"]]);
+const doubleLetters=new Map([
+["A","𝔸"],["B","𝔹"],["C","ℂ"],["D","𝔻"],["E","𝔼"],["F","𝔽"],["G","𝔾"],["H","ℍ"],["I","𝕀"],["J","𝕁"],["K","𝕂"],["L","𝕃"],["M","𝕄"],
+["N","ℕ"],["O","𝕆"],["P","ℙ"],["Q","ℚ"],["R","ℝ"],["S","𝕊"],["T","𝕋"],["U","𝕌"],["V","𝕍"],["W","𝕎"],["X","𝕏"],["Y","𝕐"],["Z","ℤ"],
+["a","𝕒"],["b","𝕓"],["c","𝕔"],["d","𝕕"],["e","𝕖"],["f","𝕗"],["g","𝕘"],["h","𝕙"],["i","𝕚"],["j","𝕛"],["k","𝕜"],["l","𝕝"],["m","𝕞"],
+["n","𝕟"],["o","𝕠"],["p","𝕡"],["q","𝕢"],["r","𝕣"],["s","𝕤"],["t","𝕥"],["u","𝕦"],["v","𝕧"],["w","𝕨"],["x","𝕩"],["y","𝕪"],["z","𝕫"],
+["0","𝟘"],["1","𝟙"],["2","𝟚"],["3","𝟛"],["4","𝟜"],["5","𝟝"],["6","𝟞"],["7","𝟟"],["8","𝟠"],["9","𝟡"],
+["π","ℼ"],["γ","ℽ"],["Γ","ℾ"],["Π","ℿ"],["Σ","⅀"],["∏","ℿ"],["∑","⅀"]]);
+const scriptLetters=new Map([
+["A","𝒜"],["B","ℬ"],["C","𝒞"],["D","𝒟"],["E","ℰ"],["F","ℱ"],["G","𝒢"],["H","ℋ"],["I","ℐ"],["J","𝒥"],["K","𝒦"],["L","ℒ"],["M","ℳ"],
+["N","𝒩"],["O","𝒪"],["P","𝒫"],["Q","𝒬"],["R","ℛ"],["S","𝒮"],["T","𝒯"],["U","𝒰"],["V","𝒱"],["W","𝒲"],["X","𝒳"],["Y","𝒴"],["Z","𝒵"],
+["a","𝒶"],["b","𝒷"],["c","𝒸"],["d","𝒹"],["e","ℯ"],["f","𝒻"],["g","ℊ"],["h","𝒽"],["i","𝒾"],["j","𝒿"],["k","𝓀"],["l","𝓁"],["m","𝓂"],
+["n","𝓃"],["o","ℴ"],["p","𝓅"],["q","𝓆"],["r","𝓇"],["s","𝓈"],["t","𝓉"],["u","𝓊"],["v","𝓋"],["w","𝓌"],["x","𝓍"],["y","𝓎"],["z","𝓏"]]);
+const monospaceLetters=new Map([
+["A","𝙰"],["B","𝙱"],["C","𝙲"],["D","𝙳"],["E","𝙴"],["F","𝙵"],["G","𝙶"],["H","𝙷"],["I","𝙸"],["J","𝙹"],["K","𝙺"],["L","𝙻"],["M","𝙼"],
+["N","𝙽"],["O","𝙾"],["P","𝙿"],["Q","𝚀"],["R","𝚁"],["S","𝚂"],["T","𝚃"],["U","𝚄"],["V","𝚅"],["W","𝚆"],["X","𝚇"],["Y","𝚈"],["Z","𝚉"],
+["a","𝚊"],["b","𝚋"],["c","𝚌"],["d","𝚍"],["e","𝚎"],["f","𝚏"],["g","𝚐"],["h","𝚑"],["i","𝚒"],["j","𝚓"],["k","𝚔"],["l","𝚕"],["m","𝚖"],
+["n","𝚗"],["o","𝚘"],["p","𝚙"],["q","𝚚"],["r","𝚛"],["s","𝚜"],["t","𝚝"],["u","𝚞"],["v","𝚟"],["w","𝚠"],["x","𝚡"],["y","𝚢"],["z","𝚣"],
+["0","𝟶"],["1","𝟷"],["2","𝟸"],["3","𝟹"],["4","𝟺"],["5","𝟻"],["6","𝟼"],["7","𝟽"],["8","𝟾"],["9","𝟿"]]);
+
+function replaceChars(text,charMap){
+  let res=""
+  for(let i=0;i<text.length;i++){
+    let c=charMap.get(text.charAt(i));
+    if(c===undefined)
+      c=text.charAt(i);
+    res+=c;
+  }
+  return res;
+}
+
+class MathElementFormat{
+  constructor(type) {
+    this.color=undefined;
+    this.sizeScale=undefined;
+    this.baseFont=undefined;
+    this.isBold=undefined;
+    this.isItalic=undefined;
+    this.textType=undefined;
+  }
+
+  getFormatedText(text){
+    switch(this.textType||defaultFormat.textType){
+      case "normal":
+        return text;
+      case "fraktur":
+        return replaceChars(text,frakturLetters);
+      case "double":
+        return replaceChars(text,doubleLetters);
+      case "script":
+        return replaceChars(text,scriptLetters);
+      case "mono":
+        return replaceChars(text,monospaceLetters);
+      default:
+        console.log("unsupported text type: "+this.textType);
+        return text;
+    }
+  }
+
+  getFont(baseSize){
+    let fontType="";
+    if(this.isItalic===undefined?defaultFormat.isItalic:this.isItalic)
+      fontType+="italic ";
+    if(this.isBold===undefined?defaultFormat.isBold:this.isBold)
+      fontType+="bold ";
+    return fontType+baseSize*(this.sizeScale||defaultFormat.sizeScale)+"px "+(this.baseFont||defaultFormat.baseFont);
+  }
+}
+const defaultFormat=new MathElementFormat();
+defaultFormat.sizeScale=1.0;
+defaultFormat.baseFont="math";
+defaultFormat.isBold=false;
+defaultFormat.isItalic=false;
+defaultFormat.textType="normal";
+
 class MathElement {
   constructor(type,content, elements) {
     this.type=type;
     this.content = content;
     this.elts = elements;
-    this.color = undefined;
-    this.animate=true
-    this.attributes = new Map([]);
+
+    this.animate=true;
+    this.id=undefined;
+    this.classes=[];
+    this.format=new MathElementFormat();
+    this.computedFormat=undefined;
+    this.formatedText=undefined;
+
     this.innerBox=undefined;
     this.outerBox=undefined;
     this.x=undefined;
@@ -67,14 +151,15 @@ function measure(ctx,mathElement,baseSize=50){
   measureRecursive(ctx,mathElement,0,0,baseSize);
 }
 function measureRecursive(ctx,mathElement,x,y,baseSize=50,scale=1.0){
-  ctx.font=baseSize*scale+"px math";
+  ctx.font=mathElement.format.getFont(baseSize*scale);
   mathElement.x=x;
   mathElement.y=y;
   switch(mathElement.type){
     case "NUMBER":
     case "OPERATOR":
-    case "VAR":{//XXX make text bounding box relative to text position
-      let boxSize=ctx.measureText(mathElement.content);
+    case "VAR":{
+      mathElement.formatedText=mathElement.format.getFormatedText(mathElement.content);
+      let boxSize=ctx.measureText(mathElement.formatedText);
       let t_x0=boxSize.actualBoundingBoxLeft,t_x1=boxSize.actualBoundingBoxRight,t_y0=boxSize.actualBoundingBoxDescent,t_y1=boxSize.actualBoundingBoxAscent;
       let x0=0,x1=boxSize.width;
       if(mathElement.type=="OPERATOR"){
@@ -282,20 +367,20 @@ function drawMathElementInternal(ctx,mathElement,x,y,baseSize,scale=1.0){
     ctx.strokeRect(x+mathElement.innerBox.x0,y+mathElement.innerBox.y0,mathElement.innerBox.w,mathElement.innerBox.h);
     ctx.strokeStyle="#ffffff";
   }
-  ctx.font=baseSize*scale+"px math";
+  ctx.font=mathElement.format.getFont(baseSize*scale);
   switch(mathElement.type){
     case "NUMBER":
     case "OPERATOR":
     case "VAR":
       // zero line of text lies exactly at height -y0
-      ctx.fillText(mathElement.content,x,y-mathElement.innerBox.y0);
+      ctx.fillText(mathElement.formatedText,x,y-mathElement.innerBox.y0);
       break;
     case "ROW":
     case "PAREN":
       mathElement.elts.forEach((e)=>{
         drawMathElementInternal(ctx,e,baseX,baseY,baseSize,scale);
       });
-      if(mathElement.type=="PAREN"){//TODO improve drawing of parenthesis
+      if(mathElement.type=="PAREN"){//XXX add more parenthesis types
         let cy=y+(mathElement.outerBox.y0+mathElement.outerBox.y1)/2;
         switch(mathElement.content[0]){
           case '(':
@@ -533,8 +618,6 @@ const func_operators = new Map([
  //TODO? more operators
 ]);
 
-
-
 function finishWord(str,i0,i,elements){
   let tmp=str.substring(i0,i);
   i0=0;
@@ -640,6 +723,7 @@ function stringToElements(str){
         elements[i+1].content=func_operators.get(funcName);
         elements.splice(i,1);
       }else{
+         // \/ \n \t \\
          switch(funcName){
           case "set":
           case "abs":
@@ -665,7 +749,6 @@ function stringToElements(str){
             from=elements[i+2]||emptyElt();
             to=elements[i+3]||emptyElt();
             let center=new MathElement("OPERATOR",(funcName=="prod")?"∏":"∑",undefined);
-            elements[i+2].attributes.set("movableLimits",false);
             elements[i].elts=[center,from,to];
             elements.splice(i+1,3);
             break;
@@ -701,8 +784,6 @@ function stringToElements(str){
           case "under":
           case "over":
             elements[i].type=funcName.toUpperCase();
-            if(funcName!="root")
-              elements[i+2].attributes.set("movableLimits",false);
             elements[i].elts=[elements[i+2]||emptyElt(),elements[i+3]||emptyElt()];
             elements.splice(i+1,3);
             break;
@@ -711,15 +792,33 @@ function stringToElements(str){
             elements[i].elts=[emptyElt(),elements[i+2]||emptyElt()];
             elements.splice(i+1,2);
             break;
+          case "bold":
+            if(elements[i+2]){
+              elements[i+2].format.isBold=true;
+            }
+            elements.splice(i,2);
+            break;
+          case "italic":
+            if(elements[i+2]){
+              elements[i+2].format.isItalic=true;
+            }
+            elements.splice(i,2);
+            break;
+          case "plain":
+            if(elements[i+2]){
+              elements[i+2].format.isBold=false;
+              elements[i+2].format.isItalic=false;
+              elements[i+2].format.textType="normal";
+            }
+            elements.splice(i,2);
+            break;
           //different script types
           case "double":
           case "script":
           case "fraktur":
           case "mono":
-          case "bold":
-          case "italic":
             if(elements[i+2]){
-              elements[i+2].attributes.set("mathvariant",["double-struck","script","fraktur","monospace","bold","italic"][["double","script","fraktur","mono","bold","italic"].indexOf(funcName)]);
+              elements[i+2].format.textType=funcName;
             }
             elements.splice(i,2);
             break;
@@ -731,19 +830,19 @@ function stringToElements(str){
             break;
           case "color":
             if(elements[i+2]&&elements[i+3]){
-              elements[i+3].color=elements[i+2].content;
+              elements[i+3].format.color=elements[i+2].content;
             }
             elements.splice(i,3);
             break;
           case "id":
             if(elements[i+2]&&elements[i+3]){
-              elements[i+3].attributes.set("id",elements[i+2].content);
+              elements[i+3].id=elements[i+2].content;
             }
             elements.splice(i,3);
             break;
           case "class":
             if(elements[i+2]&&elements[i+3]){
-              elements[i+3].attributes.set("class",(elements[i+3].attributes.get("class")||"")+" "+elements[i+2].content);
+              elements[i+3].classes.append(elements[i+2].content);
             }
             elements.splice(i,3);
             break;
