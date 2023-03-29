@@ -490,82 +490,102 @@ function measureRecursive(ctx,mathElement,x,y,parentStyle=defaultStyle,baseSize=
   }
 }
 
-function drawParenthesis(ctx,mathElement,x,y){//XXX add more parenthesis types
-  let cy=y+(mathElement.outerBox.y0+mathElement.outerBox.y1)/2;
-  switch(mathElement.content[0]){
+function drawBrackets(ctx,type,x0,x1,y0,y0inner,y1inner,y1){
+  let cy=(y0+y1)/2;
+  let h=(y1-y0);
+  let hInner=(y1inner-y0inner);
+  switch(type){
     case '(':
       ctx.beginPath();
-      ctx.ellipse(x+parenWidth,cy,2*parenWidth,mathElement.innerBox.h/Math.sqrt(3),0,2*Math.PI/3,-2*Math.PI/3);
+      ctx.ellipse(x1+parenWidth,cy,2*parenWidth,hInner/Math.sqrt(3),0,2*Math.PI/3,-2*Math.PI/3);
+      ctx.stroke();
+      break;
+    case ')':
+      ctx.beginPath();
+      ctx.ellipse(x0-parenWidth,cy,2*parenWidth,hInner/Math.sqrt(3),0,-Math.PI/3,Math.PI/3);
       ctx.stroke();
       break;
     case '[':
       ctx.beginPath();
-      ctx.moveTo(x+mathElement.innerBox.x0,y+mathElement.outerBox.y0);
-      ctx.lineTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.outerBox.y0);
-      ctx.lineTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.outerBox.y1);
-      ctx.lineTo(x+mathElement.innerBox.x0,y+mathElement.outerBox.y1);
-      ctx.stroke();
-      break;
-    case '⌊':
-      ctx.beginPath();
-      ctx.moveTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.outerBox.y0);
-      ctx.lineTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.outerBox.y1);
-      ctx.lineTo(x+mathElement.innerBox.x0,y+mathElement.outerBox.y1);
-      ctx.stroke();
-      break;
-    case '⌈':
-      ctx.beginPath();
-      ctx.moveTo(x+mathElement.innerBox.x0,y+mathElement.outerBox.y0);
-      ctx.lineTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.outerBox.y0);
-      ctx.lineTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.outerBox.y1);
-      ctx.stroke();
-      break;
-    case '|':
-      ctx.beginPath();
-      ctx.moveTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.innerBox.y0);
-      ctx.lineTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.innerBox.y1);
-      ctx.stroke();
-      break;
-      // set brackets , < >
-    default:
-      console.log("unsupported opening bracket: '"+mathElement.content[0]+"'");
-  }
-  switch(mathElement.content[1]){
-    case ')':
-      ctx.beginPath();
-      ctx.ellipse(x+mathElement.innerBox.w-parenWidth,cy,2*parenWidth,mathElement.innerBox.h/Math.sqrt(3),0,-Math.PI/3,Math.PI/3);
+      ctx.moveTo(x1,y0);
+      ctx.lineTo((2*x0+x1)/3,y0);
+      ctx.lineTo((2*x0+x1)/3,y1);
+      ctx.lineTo(x1,y1);
       ctx.stroke();
       break;
     case ']':
       ctx.beginPath();
-      ctx.moveTo(x+mathElement.innerBox.x1,y+mathElement.outerBox.y0);
-      ctx.lineTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.outerBox.y0);
-      ctx.lineTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.outerBox.y1);
-      ctx.lineTo(x+mathElement.innerBox.x1,y+mathElement.outerBox.y1);
+      ctx.moveTo(x0,y0);
+      ctx.lineTo((x0+2*x1)/3,y0);
+      ctx.lineTo((x0+2*x1)/3,y1);
+      ctx.lineTo(x0,y1);
+      ctx.stroke();
+      break;
+    case '⌊':
+      ctx.beginPath();
+      ctx.moveTo((2*x0+x1)/3,y0);
+      ctx.lineTo((2*x0+x1)/3,y1);
+      ctx.lineTo(x1,y1);
       ctx.stroke();
       break;
     case '⌋':
       ctx.beginPath();
-      ctx.moveTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.outerBox.y0);
-      ctx.lineTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.outerBox.y1);
-      ctx.lineTo(x+mathElement.innerBox.x1,y+mathElement.outerBox.y1);
+      ctx.moveTo((x0+2*x1)/3,y0);
+      ctx.lineTo((x0+2*x1)/3,y1);
+      ctx.lineTo(x0,y1);
+      ctx.stroke();
+      break;
+    case '⌈':
+      ctx.beginPath();
+      ctx.moveTo(x1,y0);
+      ctx.lineTo((2*x0+x1)/3,y0);
+      ctx.lineTo((2*x0+x1)/3,y1);
       ctx.stroke();
       break;
     case '⌉':
       ctx.beginPath();
-      ctx.moveTo(x+mathElement.innerBox.x1,y+mathElement.outerBox.y0);
-      ctx.lineTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.outerBox.y0);
-      ctx.lineTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.outerBox.y1);
+      ctx.moveTo(x0,y0);
+      ctx.lineTo((x0+2*x1)/3,y0);
+      ctx.lineTo((x0+2*x1)/3,y1);
       ctx.stroke();
       break;
     case '|':
       ctx.beginPath();
-      ctx.moveTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.innerBox.y0);
-      ctx.lineTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.innerBox.y1);
+      ctx.moveTo((x0+x1)/2,y0inner);
+      ctx.lineTo((x0+x1)/2,y1inner);
       ctx.stroke();
       break;
+    case '<':
+      ctx.beginPath();
+      ctx.moveTo(x1,y0);
+      ctx.lineTo(x0,(y0+y1)/2);
+      ctx.lineTo(x1,y1);
+      ctx.stroke();
+      break;
+    case '>':
+      ctx.beginPath();
+      ctx.moveTo(x0,y0);
+      ctx.lineTo(x1,(y0+y1)/2);
+      ctx.lineTo(x0,y1);
+      ctx.stroke();
+      break;
+    case '{':
+      ctx.beginPath();
+      ctx.moveTo(x1,y0);
+      ctx.bezierCurveTo(x0,y0,x1,(y0+y1)/2,x0,(y0+y1)/2);
+      ctx.bezierCurveTo(x1,(y0+y1)/2,x0,y1,x1,y1);
+      ctx.stroke();
+      break;
+    case '}':
+      ctx.beginPath();
+      ctx.moveTo(x0,y0);
+      ctx.bezierCurveTo(x1,y0,x0,(y0+y1)/2,x1,(y0+y1)/2);
+      ctx.bezierCurveTo(x0,(y0+y1)/2,x1,y1,x0,y1);
+      ctx.stroke();
+      break;
+    //XXX double lined square bracket, find way of inputting brackets separately?
     default:
-      console.log("unsupported closing bracket: '"+mathElement.content[1]+"'");
+      console.log("unsupported closing bracket: '"+type+"'");
   }
 }
 let drawBoundingBoxes=false;
@@ -597,7 +617,10 @@ function drawMathElementInternal(ctx,mathElement,x,y,baseSize,scale=1.0){
     case "ROW":
     case "PAREN":
       if(mathElement.type=="PAREN"){
-        drawParenthesis(ctx,mathElement,x,y);
+        drawBrackets(ctx,mathElement.content[0],x+mathElement.outerBox.x0,x+mathElement.innerBox.x0,
+          y+mathElement.outerBox.y0,y+mathElement.innerBox.y0,y+mathElement.innerBox.y1,y+mathElement.innerBox.y1);
+        drawBrackets(ctx,mathElement.content[1],x+mathElement.innerBox.x1,x+mathElement.outerBox.x1,
+          y+mathElement.outerBox.y0,y+mathElement.innerBox.y0,y+mathElement.innerBox.y1,y+mathElement.innerBox.y1);
       }
       mathElement.elts.forEach((e)=>{
         drawMathElementInternal(ctx,e,baseX,baseY,baseSize,baseScale);
@@ -925,8 +948,9 @@ function stringToElements(str){
           case "abs":
           case "floor":
           case "ceil":
+          case "angle":
             elements[i].type="PAREN";
-            elements[i].content=[["{","}"],["|","|"],["⌊","⌋"],["⌈","⌉"]][["set","abs","floor","ceil"].indexOf(funcName)];
+            elements[i].content=[["{","}"],["|","|"],["⌊","⌋"],["⌈","⌉"],["<",">"]][["set","abs","floor","ceil","angle"].indexOf(funcName)];
             elements[i].elts=[elements[i+2]||emptyElt()];
             elements.splice(i+1,2);
             break;
