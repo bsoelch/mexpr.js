@@ -370,14 +370,14 @@ function measureRecursive(ctx,mathElement,x,y,parentStyle=defaultStyle,baseSize=
     case "ROOT":{//root value
       let root=mathElement.elts[0];
       let value=mathElement.elts[1];
-      measureRecursive(ctx,root,0,0,mathElement.computedStyle,baseSize,baseScale*rootScale);
+      measureRecursive(ctx,root,x,y,mathElement.computedStyle,baseSize,baseScale*rootScale);
       root.moveBy(-root.outerBox.x0,-root.outerBox.y1-rootPadding);
       measureRecursive(ctx,value,x,y,mathElement.computedStyle,baseSize,baseScale);
-      value.moveBy(Math.max(root.outerBox.w,rootDistance/3)+rootDistance-value.outerBox.x0,0);
+      value.moveBy(Math.max(root.outerBox.w,scale*rootDistance/3)+scale*rootDistance-value.outerBox.x0,0);
       mathElement.innerBox=new Box(
         0,
         Math.min(-root.outerBox.y1,value.outerBox.y0)-rootPadding,
-        Math.max(root.outerBox.w,rootDistance/3)+rootDistance+value.outerBox.w,
+        Math.max(root.outerBox.w,scale*rootDistance/3)+scale*rootDistance+value.outerBox.w,
         value.outerBox.y1
       );
       mathElement.outerBox=new Box(mathElement.innerBox.x0-rootPadding*scale,
@@ -541,10 +541,14 @@ let drawBoundingBoxes=false;
 function drawMathElementInternal(ctx,mathElement,x,y,baseSize,scale=1.0){
   ctx.fillStyle=mathElement.computedStyle.color||"#ffffff";
   ctx.strokeStyle=mathElement.computedStyle.color||"#ffffff";
+  ctx.lineWidth=Math.max(mathElement.computedStyle.sizeScale*scale*3,3);
+  ctx.font=mathElement.computedStyle.getFont(baseSize*scale);
   let baseX=x;
   let baseY=y;
+  let baseScale=scale;
   x+=mathElement.x;
   y+=mathElement.y;
+  scale*=mathElement.computedStyle.sizeScale;
   if(drawBoundingBoxes){
     ctx.strokeStyle="#ff0000";
     ctx.strokeRect(x+mathElement.outerBox.x0,y+mathElement.outerBox.y0,mathElement.outerBox.w,mathElement.outerBox.h);
@@ -552,7 +556,6 @@ function drawMathElementInternal(ctx,mathElement,x,y,baseSize,scale=1.0){
     ctx.strokeRect(x+mathElement.innerBox.x0,y+mathElement.innerBox.y0,mathElement.innerBox.w,mathElement.innerBox.h);
     ctx.strokeStyle="#ffffff";
   }
-  ctx.font=mathElement.computedStyle.getFont(baseSize*scale);
   switch(mathElement.type){
     case "NUMBER":
     case "OPERATOR":
@@ -566,7 +569,7 @@ function drawMathElementInternal(ctx,mathElement,x,y,baseSize,scale=1.0){
         drawParenthesis(ctx,mathElement,x,y);
       }
       mathElement.elts.forEach((e)=>{
-        drawMathElementInternal(ctx,e,baseX,baseY,baseSize,scale);
+        drawMathElementInternal(ctx,e,baseX,baseY,baseSize,baseScale);
       });
       break;
     case "FRAC":// [a,b]
@@ -576,61 +579,61 @@ function drawMathElementInternal(ctx,mathElement,x,y,baseSize,scale=1.0){
       ctx.stroke();
       let a=mathElement.elts[0];
       let b=mathElement.elts[1];
-      drawMathElementInternal(ctx,a,baseX,baseY,baseSize,fractionScale*scale);
-      drawMathElementInternal(ctx,b,baseX,baseY,baseSize,fractionScale*scale);
+      drawMathElementInternal(ctx,a,baseX,baseY,baseSize,fractionScale*baseScale);
+      drawMathElementInternal(ctx,b,baseX,baseY,baseSize,fractionScale*baseScale);
       break;
     case "SUP":
     case "SUB":{
       let base=mathElement.elts[0];
       let exp=mathElement.elts[1];
-      drawMathElementInternal(ctx,base,baseX,baseY,baseSize,scale);
-      drawMathElementInternal(ctx,exp,baseX,baseY,baseSize,exponentScale*scale);
+      drawMathElementInternal(ctx,base,baseX,baseY,baseSize,baseScale);
+      drawMathElementInternal(ctx,exp,baseX,baseY,baseSize,exponentScale*baseScale);
       }break;
     case "UNDER":
     case "OVER":{
       let base=mathElement.elts[0];
       let exp=mathElement.elts[1];
-      drawMathElementInternal(ctx,base,baseX,baseY,baseSize,scale);
-      drawMathElementInternal(ctx,exp,baseX,baseY,baseSize,underScale*scale);
+      drawMathElementInternal(ctx,base,baseX,baseY,baseSize,baseScale);
+      drawMathElementInternal(ctx,exp,baseX,baseY,baseSize,underScale*baseScale);
       }break;
     case "SUBSUP":{
       let base=mathElement.elts[0];
       let sub=mathElement.elts[1];
       let sup=mathElement.elts[2];
-      drawMathElementInternal(ctx,base,baseX,baseY,baseSize,scale);
-      drawMathElementInternal(ctx,sub,baseX,baseY,baseSize,exponentScale*scale);
-      drawMathElementInternal(ctx,sup,baseX,baseY,baseSize,exponentScale*scale);
+      drawMathElementInternal(ctx,base,baseX,baseY,baseSize,baseScale);
+      drawMathElementInternal(ctx,sub,baseX,baseY,baseSize,exponentScale*baseScale);
+      drawMathElementInternal(ctx,sup,baseX,baseY,baseSize,exponentScale*baseScale);
       }break;
     case "UNDEROVER":{
       let base=mathElement.elts[0];
       let sub=mathElement.elts[1];
       let sup=mathElement.elts[2];
-      drawMathElementInternal(ctx,base,baseX,baseY,baseSize,scale);
-      drawMathElementInternal(ctx,sub,baseX,baseY,baseSize,underScale*scale);
-      drawMathElementInternal(ctx,sup,baseX,baseY,baseSize,underScale*scale);
+      drawMathElementInternal(ctx,base,baseX,baseY,baseSize,baseScale);
+      drawMathElementInternal(ctx,sub,baseX,baseY,baseSize,underScale*baseScale);
+      drawMathElementInternal(ctx,sup,baseX,baseY,baseSize,underScale*baseScale);
       }break;
     case "ROOT":{
       let root=mathElement.elts[0];
       let val=mathElement.elts[1];
       ctx.beginPath();
       ctx.moveTo(x,y);
-      ctx.lineTo(x+Math.max(root.outerBox.w,rootDistance/3),y);
-      ctx.lineTo(x+Math.max(root.outerBox.w,rootDistance/3)+rootDistance/3,y+mathElement.outerBox.y1);
-      ctx.lineTo(x+Math.max(root.outerBox.w,rootDistance/3)+rootDistance,y+mathElement.outerBox.y0);
+      ctx.lineTo(x+Math.max(root.outerBox.w,scale*rootDistance/3),y);
+      ctx.lineTo(x+Math.max(root.outerBox.w,scale*rootDistance/3)+scale*rootDistance/3,y+mathElement.outerBox.y1);
+      ctx.lineTo(x+Math.max(root.outerBox.w,scale*rootDistance/3)+scale*rootDistance,y+mathElement.outerBox.y0);
       ctx.lineTo(x+mathElement.outerBox.x1,y+mathElement.outerBox.y0);
       ctx.stroke();
-      drawMathElementInternal(ctx,root,baseX,baseY,baseSize,rootScale*scale);
-      drawMathElementInternal(ctx,val,baseX,baseY,baseSize,scale);
+      drawMathElementInternal(ctx,root,baseX,baseY,baseSize,rootScale*baseScale);
+      drawMathElementInternal(ctx,val,baseX,baseY,baseSize,baseScale);
     }break;
     case "VECTOR":{
       mathElement.elts.forEach((e)=>{
-        drawMathElementInternal(ctx,e,baseX,baseY,baseSize,scale);
+        drawMathElementInternal(ctx,e,baseX,baseY,baseSize,baseScale);
       });
       }break;
     case "MATRIX":{
       mathElement.elts.forEach((e)=>{
         e.elts.forEach((f)=>{
-          drawMathElementInternal(ctx,f,baseX,baseY,baseSize,scale);
+          drawMathElementInternal(ctx,f,baseX,baseY,baseSize,baseScale);
         });
       });
       }break;
@@ -646,7 +649,6 @@ function drawMathElementInternal(ctx,mathElement,x,y,baseSize,scale=1.0){
 }
 function drawMathElement(ctx,mathElement,x=100,y=100,baseSize=50,style=defaultStyle){
   measureMathElement(ctx,mathElement,baseSize,defaultStyle);
-  ctx.lineWidth=3;//XXX make line with customizable
   drawMathElementInternal(ctx,mathElement,x,y,baseSize);
 }
 
@@ -919,6 +921,11 @@ function stringToElements(str){
           case "sqrt":
             elements[i].type="ROOT";
             elements[i].elts=[emptyElt(),elements[i+2]||emptyElt()];
+            elements.splice(i+1,2);
+            break;
+          case "cbrt":
+            elements[i].type="ROOT";
+            elements[i].elts=[new MathElement("NUMBER","3",undefined),elements[i+2]||emptyElt()];
             elements.splice(i+1,2);
             break;
           case "big":
