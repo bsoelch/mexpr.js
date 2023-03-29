@@ -44,14 +44,37 @@ function replaceChars(text,charMap){
   return res;
 }
 
-class MathElementFormat{
-  constructor(type) {
-    this.color=undefined;
-    this.sizeScale=undefined;
-    this.baseFont=undefined;
-    this.isBold=undefined;
-    this.isItalic=undefined;
-    this.textType=undefined;
+class MathElementStyle{
+  constructor(src=undefined,parent=undefined) {
+    if(src){
+      this.color=src.color;
+      this.sizeScale=src.sizeScale;
+      this.baseFont=src.baseFont;
+      this.isBold=src.isBold;
+      this.isItalic=src.isItalic;
+      this.textType=src.textType;
+    }else{
+      this.color=undefined;
+      this.sizeScale=undefined;
+      this.baseFont=undefined;
+      this.isBold=undefined;
+      this.isItalic=undefined;
+      this.textType=undefined;
+    }
+    if(parent){
+      if(this.color===undefined)
+        this.color=parent.color
+      if(this.sizeScale===undefined)
+        this.sizeScale=parent.sizeScale
+      if(this.baseFont===undefined)
+        this.baseFont=parent.baseFont
+      if(this.isBold===undefined)
+        this.isBold=parent.isBold
+      if(this.isItalic===undefined)
+        this.isItalic=parent.isItalic
+      if(this.textType===undefined)
+        this.textType=parent.textType
+    }
   }
 
   getFormatedText(text){
@@ -81,12 +104,13 @@ class MathElementFormat{
     return fontType+baseSize*(this.sizeScale||defaultFormat.sizeScale)+"px "+(this.baseFont||defaultFormat.baseFont);
   }
 }
-const defaultFormat=new MathElementFormat();
-defaultFormat.sizeScale=1.0;
-defaultFormat.baseFont="math";
-defaultFormat.isBold=false;
-defaultFormat.isItalic=false;
-defaultFormat.textType="normal";
+const defaultStyle=new MathElementStyle();
+defaultStyle.color="#ffffff";
+defaultStyle.sizeScale=1.0;
+defaultStyle.baseFont="math";
+defaultStyle.isBold=false;
+defaultStyle.isItalic=false;
+defaultStyle.textType="normal";
 
 class MathElement {
   constructor(type,content, elements) {
@@ -97,8 +121,8 @@ class MathElement {
     this.animate=true;
     this.id=undefined;
     this.classes=[];
-    this.format=new MathElementFormat();
-    this.computedFormat=undefined;
+    this.style=new MathElementStyle();
+    this.computedStyle=undefined;
     this.formatedText=undefined;
 
     this.innerBox=undefined;
@@ -130,7 +154,8 @@ class MathElement {
 }
 
 
-let opPadding=2;
+let opPadding=3;
+let textPadding=2;
 let parenWidth=10;
 let parenHeight=5;
 let fracPaddingX=5;
@@ -140,6 +165,9 @@ let exponentIndent=0.4;
 let exponentScale=0.7;
 let exponentPadding=3;
 let powerPadding=2;
+let underScale=0.6;
+let underDistance=5;
+let underPadding=3;
 let rootScale=0.5;
 let rootPadding=3;
 let rootDistance=12;
@@ -147,29 +175,34 @@ let matrixPadding=4;
 let matrixPaddingX=12;
 let matrixPaddingY=16;
 
-function measure(ctx,mathElement,baseSize=50){
-  measureRecursive(ctx,mathElement,0,0,baseSize);
+function measure(ctx,mathElement,baseSize=50,parentStyle=defaultStyle){
+  measureRecursive(ctx,mathElement,0,0,parentStyle,baseSize);
 }
-function measureRecursive(ctx,mathElement,x,y,baseSize=50,scale=1.0){
-  ctx.font=mathElement.format.getFont(baseSize*scale);
+function measureRecursive(ctx,mathElement,x,y,parentStyle=defaultStyle,baseSize=50,scale=1.0){
   mathElement.x=x;
   mathElement.y=y;
+  mathElement.computedStyle=new MathElementStyle(mathElement.style,parentStyle);
+  ctx.font=mathElement.computedStyle.getFont(baseSize*scale);
+  let baseScale=scale;
+  scale*=mathElement.computedStyle.sizeScale;
   switch(mathElement.type){
     case "NUMBER":
     case "OPERATOR":
     case "VAR":{
-      mathElement.formatedText=mathElement.format.getFormatedText(mathElement.content);
+      mathElement.formatedText=mathElement.computedStyle.getFormatedText(mathElement.content);
       let boxSize=ctx.measureText(mathElement.formatedText);
       let t_x0=boxSize.actualBoundingBoxLeft,t_x1=boxSize.actualBoundingBoxRight,t_y0=boxSize.actualBoundingBoxDescent,t_y1=boxSize.actualBoundingBoxAscent;
       let x0=0,x1=boxSize.width;
       if(mathElement.type=="OPERATOR"){
-        let y0=-(t_y1-t_y0)/2,y1=(t_y1-t_y0)/2;
+        let y0=-(t_y1+t_y0)/2,y1=(t_y1+t_y0)/2;
         mathElement.innerBox=new Box(x0,y0,x1,y1);
         mathElement.outerBox=new Box(x0-opPadding*scale,y0-opPadding*scale,x1+opPadding*scale,y1+opPadding*scale);
+        mathElement.textYOffset=-t_y0-y0;
       }else{
-        let y0=-(1/3)*scale*baseSize,y1=(1/3)*scale*baseSize+t_y0;//
+        let y0=-(1/3)*scale*baseSize,y1=(1/3)*scale*baseSize+t_y0;
         mathElement.innerBox=new Box(x0,y0,x1,y1);
-        mathElement.outerBox=mathElement.innerBox;
+        mathElement.outerBox=new Box(x0-textPadding*scale,y0-textPadding*scale,x1+textPadding*scale,y1+textPadding*scale);
+        mathElement.textYOffset=-y0;
       }
       mathElement.x+=mathElement.innerBox.x0;
       }break;
@@ -178,25 +211,20 @@ function measureRecursive(ctx,mathElement,x,y,baseSize=50,scale=1.0){
       let x0=x;
       let minX=undefined,minY=Infinity,w=0,maxY=-Infinity;
       mathElement.elts.forEach((e)=>{
-        measureRecursive(ctx,e,x0,y,baseSize,scale);
+        measureRecursive(ctx,e,x0,y,mathElement.computedStyle,baseSize,baseScale);
         if(e.outerBox.x0!=0){
           e.moveBy(-e.outerBox.x0,0);
-        }
-        if(minX===undefined){
-          minX=e.x0;
         }
         minY=Math.min(e.outerBox.y0,minY);
         maxY=Math.max(e.outerBox.y1,maxY);
         w+=e.outerBox.w;
         x0+=e.outerBox.w;
       });
-      if(minX===undefined)
-        minX=0;
       if(minY>maxY)
         minY=maxY=0;
-      mathElement.innerBox=new Box(minX,minY,w-minX,maxY);
+      mathElement.innerBox=new Box(0,minY,w,maxY);
       if(mathElement.type=="PAREN"){
-        mathElement.outerBox=new Box(minX-parenWidth,minY-parenHeight,w-minX+parenWidth,maxY+parenHeight);
+        mathElement.outerBox=new Box(-parenWidth,minY-parenHeight,w+parenWidth,maxY+parenHeight);
       }else{
         mathElement.outerBox=mathElement.innerBox;
       }
@@ -204,8 +232,8 @@ function measureRecursive(ctx,mathElement,x,y,baseSize=50,scale=1.0){
     case "FRAC":{// [a,b]
       let a=mathElement.elts[0];
       let b=mathElement.elts[1];
-      measureRecursive(ctx,a,0,0,baseSize,scale*fractionScale);
-      measureRecursive(ctx,b,0,0,baseSize,scale*fractionScale);
+      measureRecursive(ctx,a,0,0,mathElement.computedStyle,baseSize,baseScale*fractionScale);
+      measureRecursive(ctx,b,0,0,mathElement.computedStyle,baseSize,baseScale*fractionScale);
       mathElement.innerBox=new Box(
         Math.min(a.outerBox.x0,b.outerBox.x0),
         -a.outerBox.h-scale*fracPaddingY,
@@ -223,11 +251,11 @@ function measureRecursive(ctx,mathElement,x,y,baseSize=50,scale=1.0){
       let base=mathElement.elts[0];
       let exp=mathElement.elts[1];
       x+=powerPadding*scale;
-      measureRecursive(ctx,base,x,y,baseSize,scale);
-      measureRecursive(ctx,exp,x,y,baseSize,scale*exponentScale);
+      measureRecursive(ctx,base,x,y,mathElement.computedStyle,baseSize,baseScale);
+      measureRecursive(ctx,exp,x,y,mathElement.computedStyle,baseSize,baseScale*exponentScale);
       mathElement.innerBox=new Box(
         base.outerBox.x0,
-        base.outerBox.y0-exp.outerBox.h+(exponentIndent*baseSize*scale*exponentScale),//set exponent half size below top line
+        base.outerBox.y0-exp.outerBox.h+(exponentIndent*baseSize*scale*exponentScale),
         base.outerBox.x1+scale*exponentPadding+exp.outerBox.w,
         base.outerBox.y1
       );
@@ -241,8 +269,8 @@ function measureRecursive(ctx,mathElement,x,y,baseSize=50,scale=1.0){
       let base=mathElement.elts[0];
       let sub=mathElement.elts[1];
       x+=powerPadding*scale;
-      measureRecursive(ctx,base,x,y,baseSize,scale);
-      measureRecursive(ctx,sub,x,y,baseSize,scale*exponentScale);
+      measureRecursive(ctx,base,x,y,mathElement.computedStyle,baseSize,baseScale);
+      measureRecursive(ctx,sub,x,y,mathElement.computedStyle,baseSize,baseScale*exponentScale);
       mathElement.innerBox=new Box(
         base.outerBox.x0,
         base.outerBox.y0,
@@ -255,15 +283,93 @@ function measureRecursive(ctx,mathElement,x,y,baseSize=50,scale=1.0){
         mathElement.innerBox.y1+powerPadding*scale);
       sub.moveBy(base.outerBox.x1-sub.outerBox.x0+scale*exponentPadding,mathElement.innerBox.y1-sub.outerBox.y1);
       }break;
-    case "SUBSUP"://TODO SUBSUP
-      console.log("UNIMPLEMENTED:"+mathElement.type);
+    case "SUBSUP":{//base subscript superscript
+      let base=mathElement.elts[0];
+      let sub=mathElement.elts[1];
+      let sup=mathElement.elts[2];
+      x+=powerPadding*scale;
+      measureRecursive(ctx,base,x,y,mathElement.computedStyle,baseSize,baseScale);
+      measureRecursive(ctx,sub,x,y,mathElement.computedStyle,baseSize,baseScale*exponentScale);
+      measureRecursive(ctx,sup,x,y,mathElement.computedStyle,baseSize,baseScale*exponentScale);
+      mathElement.innerBox=new Box(
+        base.outerBox.x0,
+        base.outerBox.y0-sup.outerBox.h+(exponentIndent*baseSize*scale*exponentScale),
+        base.outerBox.x1+scale*exponentPadding+Math.max(sub.outerBox.w,sup.outerBox.w),
+        base.outerBox.y1+sub.outerBox.h-(exponentIndent*baseSize*scale*exponentScale)
+      );
+      mathElement.outerBox=new Box(mathElement.innerBox.x0-powerPadding*scale,
+        mathElement.innerBox.y0-powerPadding*scale,
+        mathElement.innerBox.x1+powerPadding*scale,
+        mathElement.innerBox.y1+powerPadding*scale);
+      sup.moveBy(base.outerBox.x1-sup.outerBox.x0+scale*exponentPadding,mathElement.innerBox.y0-sup.outerBox.y0);
+      sub.moveBy(base.outerBox.x1-sub.outerBox.x0+scale*exponentPadding,mathElement.innerBox.y1-sub.outerBox.y1);
+      }break;
+    case "UNDER":{// base under
+      let base=mathElement.elts[0];
+      let under=mathElement.elts[1];
+      measureRecursive(ctx,base,x,y,mathElement.computedStyle,baseSize,baseScale);
+      measureRecursive(ctx,under,x,y,mathElement.computedStyle,baseSize,baseScale*underScale);
+      mathElement.innerBox=new Box(
+        Math.min(base.outerBox.x0,under.outerBox.x0),
+        base.outerBox.y0,
+        Math.max(base.outerBox.x1,under.outerBox.x1),
+        base.outerBox.y1+under.h+underDistance
+      );
+      mathElement.outerBox=new Box(mathElement.innerBox.x0-underPadding*scale,
+        mathElement.innerBox.y0-underPadding*scale,
+        mathElement.innerBox.x1+underPadding*scale,
+        mathElement.innerBox.y1+underPadding*scale);
+      let cx=x+(mathElement.outerBox.x0+mathElement.outerBox.x1)/2;
+      base.moveTo(cx-(base.innerBox.x0+base.innerBox.x1)/2,y);
+      under.moveTo(cx-(under.innerBox.x0+under.innerBox.x1)/2,base.y+base.outerBox.y1-under.outerBox.y0+underDistance);
+      }break;
+    case "OVER":{// base over
+      let base=mathElement.elts[0];
+      let over=mathElement.elts[1];
+      measureRecursive(ctx,base,x,y,mathElement.computedStyle,baseSize,baseScale);
+      measureRecursive(ctx,over,x,y,mathElement.computedStyle,baseSize,baseScale*underScale);
+      mathElement.innerBox=new Box(
+        Math.min(base.outerBox.x0,over.outerBox.x0),
+        base.outerBox.y0-over.h-underDistance,
+        Math.max(base.outerBox.x1,over.outerBox.x1),
+        base.outerBox.y1
+      );
+      mathElement.outerBox=new Box(mathElement.innerBox.x0-underPadding*scale,
+        mathElement.innerBox.y0-underPadding*scale,
+        mathElement.innerBox.x1+underPadding*scale,
+        mathElement.innerBox.y1+underPadding*scale);
+      let cx=x+(mathElement.outerBox.x0+mathElement.outerBox.x1)/2;
+      base.moveTo(cx-(base.innerBox.x0+base.innerBox.x1)/2,y);
+      over.moveTo(cx-(over.innerBox.x0+over.innerBox.x1)/2,base.y+base.outerBox.y0-over.outerBox.h-underDistance);
+      }break;
+    case "UNDEROVER":
+      let base=mathElement.elts[0];
+      let under=mathElement.elts[1];
+      let over=mathElement.elts[2];
+      measureRecursive(ctx,base,x,y,mathElement.computedStyle,baseSize,baseScale);
+      measureRecursive(ctx,over,x,y,mathElement.computedStyle,baseSize,baseScale*underScale);
+      measureRecursive(ctx,under,x,y,mathElement.computedStyle,baseSize,baseScale*underScale);
+      mathElement.innerBox=new Box(
+        Math.min(base.outerBox.x0,Math.max(under.outerBox.x1,over.outerBox.x1)),
+        base.outerBox.y0-over.h-underDistance,
+        Math.max(base.outerBox.x1,Math.max(under.outerBox.x1,over.outerBox.x1)),
+        base.outerBox.y1+under.h+underDistance
+      );
+      mathElement.outerBox=new Box(mathElement.innerBox.x0-underPadding*scale,
+        mathElement.innerBox.y0-underPadding*scale,
+        mathElement.innerBox.x1+underPadding*scale,
+        mathElement.innerBox.y1+underPadding*scale);
+      let cx=x+(mathElement.outerBox.x0+mathElement.outerBox.x1)/2;
+      base.moveTo(cx-(base.innerBox.x0+base.innerBox.x1)/2,y);
+      under.moveTo(cx-(under.innerBox.x0+under.innerBox.x1)/2,base.y+base.outerBox.y1-under.outerBox.y0+underDistance);
+      over.moveTo(cx-(over.innerBox.x0+over.innerBox.x1)/2,base.y+base.outerBox.y0-over.outerBox.h-underDistance);
       break;
     case "ROOT":{//root value
       let root=mathElement.elts[0];
       let value=mathElement.elts[1];
-      measureRecursive(ctx,root,0,0,baseSize,scale*rootScale);
+      measureRecursive(ctx,root,0,0,mathElement.computedStyle,baseSize,baseScale*rootScale);
       root.moveBy(-root.outerBox.x0,-root.outerBox.y1-rootPadding);
-      measureRecursive(ctx,value,x,y,baseSize,scale);
+      measureRecursive(ctx,value,x,y,mathElement.computedStyle,baseSize,baseScale);
       value.moveBy(Math.max(root.outerBox.w,rootDistance/3)+rootDistance-value.outerBox.x0,0);
       mathElement.innerBox=new Box(
         0,
@@ -279,7 +385,7 @@ function measureRecursive(ctx,mathElement,x,y,baseSize=50,scale=1.0){
     case "VECTOR":{
       let maxW=0,h=matrixPaddingY*(mathElement.elts.length-1)*scale;
       mathElement.elts.forEach((e)=>{
-        measureRecursive(ctx,e,0,0,baseSize,scale);
+        measureRecursive(ctx,e,0,0,mathElement.computedStyle,baseSize,baseScale);
         maxW=Math.max(e.outerBox.w,maxW);
         h+=e.outerBox.h;
       });
@@ -302,7 +408,7 @@ function measureRecursive(ctx,mathElement,x,y,baseSize=50,scale=1.0){
         let maxW=0,h=matrixPaddingY*(e.elts.length-1)*scale;
         for(let r=0;r<e.elts.length;r++){
           f=e.elts[r];
-          measureRecursive(ctx,f,x,y,baseSize,scale);
+          measureRecursive(ctx,f,x,y,mathElement.computedStyle,baseSize,baseScale);
           maxW=Math.max(f.outerBox.w,maxW);
           h+=f.outerBox.h;
           rowHeights[r]=Math.max(rowHeights[r],f.outerBox.h);
@@ -337,11 +443,6 @@ function measureRecursive(ctx,mathElement,x,y,baseSize=50,scale=1.0){
         w+=e.outerBox.w+matrixPaddingX*scale;
       });
       }break;
-    case "UNDER":
-    case "OVER":
-    case "LIMITS":
-      console.log("UNIMPLEMENTED:"+mathElement.type);
-      break;
     case "FUNC":
     case "SUPERSCRIPT":
     case "SQRT":
@@ -354,8 +455,89 @@ function measureRecursive(ctx,mathElement,x,y,baseSize=50,scale=1.0){
       break;
   }
 }
+
+function drawParenthesis(ctx,mathElement,x,y){//XXX add more parenthesis types
+  let cy=y+(mathElement.outerBox.y0+mathElement.outerBox.y1)/2;
+  switch(mathElement.content[0]){
+    case '(':
+      ctx.beginPath();
+      ctx.ellipse(x+parenWidth,cy,2*parenWidth,mathElement.innerBox.h/Math.sqrt(3),0,2*Math.PI/3,-2*Math.PI/3);
+      ctx.stroke();
+      break;
+    case '[':
+      ctx.beginPath();
+      ctx.moveTo(x+mathElement.innerBox.x0,y+mathElement.outerBox.y0);
+      ctx.lineTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.outerBox.y0);
+      ctx.lineTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.outerBox.y1);
+      ctx.lineTo(x+mathElement.innerBox.x0,y+mathElement.outerBox.y1);
+      ctx.stroke();
+      break;
+    case '⌊':
+      ctx.beginPath();
+      ctx.moveTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.outerBox.y0);
+      ctx.lineTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.outerBox.y1);
+      ctx.lineTo(x+mathElement.innerBox.x0,y+mathElement.outerBox.y1);
+      ctx.stroke();
+      break;
+    case '⌈':
+      ctx.beginPath();
+      ctx.moveTo(x+mathElement.innerBox.x0,y+mathElement.outerBox.y0);
+      ctx.lineTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.outerBox.y0);
+      ctx.lineTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.outerBox.y1);
+      ctx.stroke();
+      break;
+    case '|':
+      ctx.beginPath();
+      ctx.moveTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.innerBox.y0);
+      ctx.lineTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.innerBox.y1);
+      ctx.stroke();
+      break;
+      // set brackets , < >
+    default:
+      console.log("unsupported opening bracket: '"+mathElement.content[0]+"'");
+  }
+  switch(mathElement.content[1]){
+    case ')':
+      ctx.beginPath();
+      ctx.ellipse(x+mathElement.innerBox.w-parenWidth,cy,2*parenWidth,mathElement.innerBox.h/Math.sqrt(3),0,-Math.PI/3,Math.PI/3);
+      ctx.stroke();
+      break;
+    case ']':
+      ctx.beginPath();
+      ctx.moveTo(x+mathElement.innerBox.x1,y+mathElement.outerBox.y0);
+      ctx.lineTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.outerBox.y0);
+      ctx.lineTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.outerBox.y1);
+      ctx.lineTo(x+mathElement.innerBox.x1,y+mathElement.outerBox.y1);
+      ctx.stroke();
+      break;
+    case '⌋':
+      ctx.beginPath();
+      ctx.moveTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.outerBox.y0);
+      ctx.lineTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.outerBox.y1);
+      ctx.lineTo(x+mathElement.innerBox.x1,y+mathElement.outerBox.y1);
+      ctx.stroke();
+      break;
+    case '⌉':
+      ctx.beginPath();
+      ctx.moveTo(x+mathElement.innerBox.x1,y+mathElement.outerBox.y0);
+      ctx.lineTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.outerBox.y0);
+      ctx.lineTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.outerBox.y1);
+      ctx.stroke();
+      break;
+    case '|':
+      ctx.beginPath();
+      ctx.moveTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.innerBox.y0);
+      ctx.lineTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.innerBox.y1);
+      ctx.stroke();
+      break;
+    default:
+      console.log("unsupported closing bracket: '"+mathElement.content[1]+"'");
+  }
+}
 let drawBoundingBoxes=false;
 function drawMathElementInternal(ctx,mathElement,x,y,baseSize,scale=1.0){
+  ctx.fillStyle=mathElement.computedStyle.color||"#ffffff";
+  ctx.strokeStyle=mathElement.computedStyle.color||"#ffffff";
   let baseX=x;
   let baseY=y;
   x+=mathElement.x;
@@ -367,125 +549,66 @@ function drawMathElementInternal(ctx,mathElement,x,y,baseSize,scale=1.0){
     ctx.strokeRect(x+mathElement.innerBox.x0,y+mathElement.innerBox.y0,mathElement.innerBox.w,mathElement.innerBox.h);
     ctx.strokeStyle="#ffffff";
   }
-  ctx.font=mathElement.format.getFont(baseSize*scale);
+  ctx.font=mathElement.computedStyle.getFont(baseSize*scale);
   switch(mathElement.type){
     case "NUMBER":
     case "OPERATOR":
     case "VAR":
       // zero line of text lies exactly at height -y0
-      ctx.fillText(mathElement.formatedText,x,y-mathElement.innerBox.y0);
+      ctx.fillText(mathElement.formatedText,x,y+mathElement.textYOffset);
       break;
     case "ROW":
     case "PAREN":
+      if(mathElement.type=="PAREN"){
+        drawParenthesis(ctx,mathElement,x,y);
+      }
       mathElement.elts.forEach((e)=>{
         drawMathElementInternal(ctx,e,baseX,baseY,baseSize,scale);
       });
-      if(mathElement.type=="PAREN"){//XXX add more parenthesis types
-        let cy=y+(mathElement.outerBox.y0+mathElement.outerBox.y1)/2;
-        switch(mathElement.content[0]){
-          case '(':
-            ctx.beginPath();
-            ctx.ellipse(x+parenWidth,cy,2*parenWidth,mathElement.innerBox.h/Math.sqrt(3),0,2*Math.PI/3,-2*Math.PI/3);
-            ctx.stroke();
-            break;
-          case '[':
-            ctx.beginPath();
-            ctx.moveTo(x+mathElement.innerBox.x0,y+mathElement.outerBox.y0);
-            ctx.lineTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.outerBox.y0);
-            ctx.lineTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.outerBox.y1);
-            ctx.lineTo(x+mathElement.innerBox.x0,y+mathElement.outerBox.y1);
-            ctx.stroke();
-            break;
-          case '⌊':
-            ctx.beginPath();
-            ctx.moveTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.outerBox.y0);
-            ctx.lineTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.outerBox.y1);
-            ctx.lineTo(x+mathElement.innerBox.x0,y+mathElement.outerBox.y1);
-            ctx.stroke();
-            break;
-          case '⌈':
-            ctx.beginPath();
-            ctx.moveTo(x+mathElement.innerBox.x0,y+mathElement.outerBox.y0);
-            ctx.lineTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.outerBox.y0);
-            ctx.lineTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.outerBox.y1);
-            ctx.stroke();
-            break;
-          case '|':
-            ctx.beginPath();
-            ctx.moveTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.innerBox.y0);
-            ctx.lineTo(x+(mathElement.innerBox.x0+mathElement.outerBox.x0)/2,y+mathElement.innerBox.y1);
-            ctx.stroke();
-            break;
-            // set brackets , < >
-          default:
-            console.log("unsupported opening bracket: '"+mathElement.content[0]+"'");
-        }
-        switch(mathElement.content[1]){
-          case ')':
-            ctx.beginPath();
-            ctx.ellipse(x+mathElement.innerBox.w-parenWidth,cy,2*parenWidth,mathElement.innerBox.h/Math.sqrt(3),0,-Math.PI/3,Math.PI/3);
-            ctx.stroke();
-            break;
-          case ']':
-            ctx.beginPath();
-            ctx.moveTo(x+mathElement.innerBox.x1,y+mathElement.outerBox.y0);
-            ctx.lineTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.outerBox.y0);
-            ctx.lineTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.outerBox.y1);
-            ctx.lineTo(x+mathElement.innerBox.x1,y+mathElement.outerBox.y1);
-            ctx.stroke();
-            break;
-          case '⌋':
-            ctx.beginPath();
-            ctx.moveTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.outerBox.y0);
-            ctx.lineTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.outerBox.y1);
-            ctx.lineTo(x+mathElement.innerBox.x1,y+mathElement.outerBox.y1);
-            ctx.stroke();
-            break;
-          case '⌉':
-            ctx.beginPath();
-            ctx.moveTo(x+mathElement.innerBox.x1,y+mathElement.outerBox.y0);
-            ctx.lineTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.outerBox.y0);
-            ctx.lineTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.outerBox.y1);
-            ctx.stroke();
-            break;
-          case '|':
-            ctx.beginPath();
-            ctx.moveTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.innerBox.y0);
-            ctx.lineTo(x+(mathElement.innerBox.x1+mathElement.outerBox.x1)/2,y+mathElement.innerBox.y1);
-            ctx.stroke();
-            break;
-          default:
-            console.log("unsupported closing bracket: '"+mathElement.content[1]+"'");
-        }
-      }
       break;
     case "FRAC":// [a,b]
-      let a=mathElement.elts[0];
-      let b=mathElement.elts[1];
-      drawMathElementInternal(ctx,a,baseX,baseY,baseSize,fractionScale*scale);
-      drawMathElementInternal(ctx,b,baseX,baseY,baseSize,fractionScale*scale);
       ctx.beginPath();
       ctx.moveTo(x+mathElement.innerBox.x0,y);
       ctx.lineTo(x+mathElement.innerBox.x1,y);
       ctx.stroke();
+      let a=mathElement.elts[0];
+      let b=mathElement.elts[1];
+      drawMathElementInternal(ctx,a,baseX,baseY,baseSize,fractionScale*scale);
+      drawMathElementInternal(ctx,b,baseX,baseY,baseSize,fractionScale*scale);
       break;
-    case "SUP":{
+    case "SUP":
+    case "SUB":{
       let base=mathElement.elts[0];
       let exp=mathElement.elts[1];
       drawMathElementInternal(ctx,base,baseX,baseY,baseSize,scale);
       drawMathElementInternal(ctx,exp,baseX,baseY,baseSize,exponentScale*scale);
       }break;
-    case "SUB":{
+    case "UNDER":
+    case "OVER":{
+      let base=mathElement.elts[0];
+      let exp=mathElement.elts[1];
+      drawMathElementInternal(ctx,base,baseX,baseY,baseSize,scale);
+      drawMathElementInternal(ctx,exp,baseX,baseY,baseSize,underScale*scale);
+      }break;
+    case "SUBSUP":{
       let base=mathElement.elts[0];
       let sub=mathElement.elts[1];
+      let sup=mathElement.elts[2];
       drawMathElementInternal(ctx,base,baseX,baseY,baseSize,scale);
       drawMathElementInternal(ctx,sub,baseX,baseY,baseSize,exponentScale*scale);
+      drawMathElementInternal(ctx,sup,baseX,baseY,baseSize,exponentScale*scale);
+      }break;
+    case "UNDEROVER":{
+      let base=mathElement.elts[0];
+      let sub=mathElement.elts[1];
+      let sup=mathElement.elts[2];
+      drawMathElementInternal(ctx,base,baseX,baseY,baseSize,scale);
+      drawMathElementInternal(ctx,sub,baseX,baseY,baseSize,underScale*scale);
+      drawMathElementInternal(ctx,sup,baseX,baseY,baseSize,underScale*scale);
       }break;
     case "ROOT":{
       let root=mathElement.elts[0];
       let val=mathElement.elts[1];
-      drawMathElementInternal(ctx,root,baseX,baseY,baseSize,rootScale*scale);
-      drawMathElementInternal(ctx,val,baseX,baseY,baseSize,scale);
       ctx.beginPath();
       ctx.moveTo(x,y);
       ctx.lineTo(x+Math.max(root.outerBox.w,rootDistance/3),y);
@@ -493,6 +616,8 @@ function drawMathElementInternal(ctx,mathElement,x,y,baseSize,scale=1.0){
       ctx.lineTo(x+Math.max(root.outerBox.w,rootDistance/3)+rootDistance,y+mathElement.outerBox.y0);
       ctx.lineTo(x+mathElement.outerBox.x1,y+mathElement.outerBox.y0);
       ctx.stroke();
+      drawMathElementInternal(ctx,root,baseX,baseY,baseSize,rootScale*scale);
+      drawMathElementInternal(ctx,val,baseX,baseY,baseSize,scale);
     }break;
     case "VECTOR":{
       mathElement.elts.forEach((e)=>{
@@ -506,11 +631,6 @@ function drawMathElementInternal(ctx,mathElement,x,y,baseSize,scale=1.0){
         });
       });
       }break;
-    case "UNDER":
-    case "OVER":
-    case "LIMITS":
-      console.log("UNIMPLEMENTED:"+mathElement.type);
-      break;
     case "SQRT":
     case "FUNC":
     case "SUPERSCRIPT":
@@ -521,11 +641,9 @@ function drawMathElementInternal(ctx,mathElement,x,y,baseSize,scale=1.0){
       break;
   }
 }
-function drawMathElement(ctx,mathElement,x=100,y=100,baseSize=50){
-  measure(ctx,mathElement,baseSize);
-  ctx.lineWidth=3;
-  ctx.fillStyle="#ffffff";//XXX make color customizable
-  ctx.strokeStyle="#ffffff";
+function drawMathElement(ctx,mathElement,x=100,y=100,baseSize=50,style=defaultStyle){
+  measure(ctx,mathElement,baseSize,defaultStyle);
+  ctx.lineWidth=3;//XXX make line with customizable
   drawMathElementInternal(ctx,mathElement,x,y,baseSize);
 }
 
@@ -711,11 +829,13 @@ function stringToElements(str){
       if(elements.length==i+1 || elements[i+1].type!="VAR"){//empty function name
           continue;
       }
-      funcName=elements[i+1].content.toLowerCase();
+      funcName=elements[i+1].content;
       if(greek.has(funcName)){//greek letters
         elements[i+1].content=greek.get(funcName);
         elements.splice(i,1);
-      }else if(constants.has(funcName)){//constants
+      }
+      funcName=funcName.toLowerCase();
+      if(constants.has(funcName)){//constants
         elements[i+1].content=constants.get(funcName);
         elements.splice(i,1);
       }else if(func_operators.has(funcName)){//constants
@@ -723,7 +843,7 @@ function stringToElements(str){
         elements[i+1].content=func_operators.get(funcName);
         elements.splice(i,1);
       }else{
-         // \/ \n \t \\
+         // \n \t
          switch(funcName){
           case "set":
           case "abs":
@@ -745,10 +865,11 @@ function stringToElements(str){
             break;
           case "sum":
           case "prod":
-            elements[i].type="LIMITS";
+            elements[i].type="UNDEROVER";
             from=elements[i+2]||emptyElt();
             to=elements[i+3]||emptyElt();
             let center=new MathElement("OPERATOR",(funcName=="prod")?"∏":"∑",undefined);
+            elements[i].style.sizeScale=1.4;//XXX make scale a variable
             elements[i].elts=[center,from,to];
             elements.splice(i+1,3);
             break;
@@ -779,7 +900,6 @@ function stringToElements(str){
             }
             elements.splice(i+1,2);
             }break;
-            //TODO add \underover
           case "root":
           case "under":
           case "over":
@@ -787,28 +907,44 @@ function stringToElements(str){
             elements[i].elts=[elements[i+2]||emptyElt(),elements[i+3]||emptyElt()];
             elements.splice(i+1,3);
             break;
+          case "underover":
+          case "subsup":
+            elements[i].type=funcName.toUpperCase();
+            elements[i].elts=[elements[i+2]||emptyElt(),elements[i+3]||emptyElt(),elements[i+4]||emptyElt()];
+            elements.splice(i+1,4);
+            break;
           case "sqrt":
             elements[i].type="ROOT";
             elements[i].elts=[emptyElt(),elements[i+2]||emptyElt()];
             elements.splice(i+1,2);
             break;
+          case "big":
+            if(elements[i+2]){
+              if(elements[i+2].style.sizeScale){
+                elements[i+2].style.sizeScale*=2;
+              }else{
+                elements[i+2].style.sizeScale=2;
+              }
+            }
+            elements.splice(i,2);
+            break;
           case "bold":
             if(elements[i+2]){
-              elements[i+2].format.isBold=true;
+              elements[i+2].style.isBold=true;
             }
             elements.splice(i,2);
             break;
           case "italic":
             if(elements[i+2]){
-              elements[i+2].format.isItalic=true;
+              elements[i+2].style.isItalic=true;
             }
             elements.splice(i,2);
             break;
           case "plain":
             if(elements[i+2]){
-              elements[i+2].format.isBold=false;
-              elements[i+2].format.isItalic=false;
-              elements[i+2].format.textType="normal";
+              elements[i+2].style.isBold=false;
+              elements[i+2].style.isItalic=false;
+              elements[i+2].style.textType="normal";
             }
             elements.splice(i,2);
             break;
@@ -818,7 +954,7 @@ function stringToElements(str){
           case "fraktur":
           case "mono":
             if(elements[i+2]){
-              elements[i+2].format.textType=funcName;
+              elements[i+2].style.textType=funcName;
             }
             elements.splice(i,2);
             break;
@@ -830,7 +966,7 @@ function stringToElements(str){
             break;
           case "color":
             if(elements[i+2]&&elements[i+3]){
-              elements[i+3].format.color=elements[i+2].content;
+              elements[i+3].style.color=elements[i+2].content;
             }
             elements.splice(i,3);
             break;
