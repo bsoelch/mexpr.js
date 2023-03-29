@@ -64,8 +64,11 @@ class MathElementStyle{
     if(parent){
       if(this.color===undefined)
         this.color=parent.color
-      if(this.sizeScale===undefined)
+      if(this.sizeScale===undefined){
         this.sizeScale=parent.sizeScale
+      }else{
+        this.sizeScale*=parent.sizeScale
+      }
       if(this.baseFont===undefined)
         this.baseFont=parent.baseFont
       if(this.isBold===undefined)
@@ -924,6 +927,16 @@ function stringToElements(str){
                 elements[i+2].style.sizeScale*=2;
               }else{
                 elements[i+2].style.sizeScale=2;
+              }
+            }
+            elements.splice(i,2);
+            break;
+          case "small":
+            if(elements[i+2]){
+              if(elements[i+2].style.sizeScale){
+                elements[i+2].style.sizeScale*=0.5;
+              }else{
+                elements[i+2].style.sizeScale=0.5;
               }
             }
             elements.splice(i,2);
