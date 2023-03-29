@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<meta charset="utf-8">
 <html>
 <body>
 <canvas id="canvas" width="1980" height="1080" style="position:fixed;top:0px;left:0px;width:100vw;height:100vh;background:#222222;color:#ffffff;">
@@ -27,7 +28,10 @@ if(!iField.value)
 let eq=stringToElement("\\pi=3+1 / { 7 + (1/ { 15 +1 / { 1 + 1/{292+1 /... }}})}");
 function redraw(){
   ctx.clearRect(0,0,c.width,c.height);
-  drawMathElement(ctx,eq,300,300);
+  measureMathElement(ctx,eq);
+  let x0=-(eq.outerBox.x0+eq.outerBox.x1)/2-eq.x;
+  let y0=-(eq.outerBox.y0+eq.outerBox.y1)/2-eq.y;
+  drawMathElement(ctx,eq,x0+c.width/2,y0+c.height/2);
 }
 redraw();
 </script>

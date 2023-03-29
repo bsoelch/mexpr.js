@@ -178,7 +178,7 @@ let matrixPadding=4;
 let matrixPaddingX=12;
 let matrixPaddingY=16;
 
-function measure(ctx,mathElement,baseSize=50,parentStyle=defaultStyle){
+function measureMathElement(ctx,mathElement,baseSize=50,parentStyle=defaultStyle){
   measureRecursive(ctx,mathElement,0,0,parentStyle,baseSize);
 }
 function measureRecursive(ctx,mathElement,x,y,parentStyle=defaultStyle,baseSize=50,scale=1.0){
@@ -645,7 +645,7 @@ function drawMathElementInternal(ctx,mathElement,x,y,baseSize,scale=1.0){
   }
 }
 function drawMathElement(ctx,mathElement,x=100,y=100,baseSize=50,style=defaultStyle){
-  measure(ctx,mathElement,baseSize,defaultStyle);
+  measureMathElement(ctx,mathElement,baseSize,defaultStyle);
   ctx.lineWidth=3;//XXX make line with customizable
   drawMathElementInternal(ctx,mathElement,x,y,baseSize);
 }
