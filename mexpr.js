@@ -178,6 +178,9 @@ let matrixPadding=4;
 let matrixPaddingX=12;
 let matrixPaddingY=16;
 
+let sizeScaleFactor=2;
+let sumScaleFactor=Math.sqrt(2);
+
 function measureMathElement(ctx,mathElement,baseSize=50,parentStyle=defaultStyle){
   measureRecursive(ctx,mathElement,0,0,parentStyle,baseSize);
 }
@@ -316,7 +319,7 @@ function measureRecursive(ctx,mathElement,x,y,parentStyle=defaultStyle,baseSize=
         Math.min(base.outerBox.x0,under.outerBox.x0),
         base.outerBox.y0,
         Math.max(base.outerBox.x1,under.outerBox.x1),
-        base.outerBox.y1+under.h+underDistance
+        base.outerBox.y1+under.outerBox.h+underDistance
       );
       mathElement.outerBox=new Box(mathElement.innerBox.x0-underPadding*scale,
         mathElement.innerBox.y0-underPadding*scale,
@@ -333,7 +336,7 @@ function measureRecursive(ctx,mathElement,x,y,parentStyle=defaultStyle,baseSize=
       measureRecursive(ctx,over,x,y,mathElement.computedStyle,baseSize,baseScale*underScale);
       mathElement.innerBox=new Box(
         Math.min(base.outerBox.x0,over.outerBox.x0),
-        base.outerBox.y0-over.h-underDistance,
+        base.outerBox.y0-over.outerBox.h-underDistance,
         Math.max(base.outerBox.x1,over.outerBox.x1),
         base.outerBox.y1
       );
@@ -354,9 +357,9 @@ function measureRecursive(ctx,mathElement,x,y,parentStyle=defaultStyle,baseSize=
       measureRecursive(ctx,under,x,y,mathElement.computedStyle,baseSize,baseScale*underScale);
       mathElement.innerBox=new Box(
         Math.min(base.outerBox.x0,Math.max(under.outerBox.x1,over.outerBox.x1)),
-        base.outerBox.y0-over.h-underDistance,
+        base.outerBox.y0-over.outerBox.h-underDistance,
         Math.max(base.outerBox.x1,Math.max(under.outerBox.x1,over.outerBox.x1)),
-        base.outerBox.y1+under.h+underDistance
+        base.outerBox.y1+under.outerBox.h+underDistance
       );
       mathElement.outerBox=new Box(mathElement.innerBox.x0-underPadding*scale,
         mathElement.innerBox.y0-underPadding*scale,
@@ -722,9 +725,12 @@ const greek = new Map([
 ]);
 const constants = new Map([
  ["infty","∞"],
+ ["e","𝑒"],
 ]);
 const func_operators = new Map([
  ["pm","±"],
+ ["times","×"],
+ ["cdot","·"],
  ["in","∈"],
  ["to","→"],
  ["mapsto","↦"],
@@ -738,6 +744,12 @@ const func_operators = new Map([
  ["and","∧"],
  ["exists","∃"],
  ["forall","∀"],
+ ["union","⋃"],
+ ["intersection","⋂"],
+ ["Cap","⋂"],
+ ["Cup","⋃"],
+ ["cap","∩"],
+ ["cup","∪"],
  //TODO? more operators
 ]);
 
@@ -839,7 +851,6 @@ function stringToElements(str){
         elements[i+1].content=greek.get(funcName);
         elements.splice(i,1);
       }
-      funcName=funcName.toLowerCase();
       if(constants.has(funcName)){//constants
         elements[i+1].content=constants.get(funcName);
         elements.splice(i,1);
@@ -869,15 +880,24 @@ function stringToElements(str){
             elements.splice(i+1,2);
             break;
           case "sum":
-          case "prod":
+          case "prod":{
             elements[i].type="UNDEROVER";
-            from=elements[i+2]||emptyElt();
-            to=elements[i+3]||emptyElt();
+            let from=elements[i+2]||emptyElt();
+            let to=elements[i+3]||emptyElt();
             let center=new MathElement("OPERATOR",(funcName=="prod")?"∏":"∑",undefined);
-            elements[i].style.sizeScale=1.4;//XXX make scale a variable
+            elements[i].style.sizeScale=sumScaleFactor;
             elements[i].elts=[center,from,to];
             elements.splice(i+1,3);
-            break;
+            }break;
+          case "nary":{
+            elements[i].type="UNDEROVER";
+            let op=elements[i+2]||emptyElt();
+            let from=elements[i+3]||emptyElt();
+            let to=elements[i+4]||emptyElt();
+            elements[i].style.sizeScale=sumScaleFactor;
+            elements[i].elts=[op,from,to];
+            elements.splice(i+1,4);
+            }break;
           case "vector":
             elements[i].type=funcName.toUpperCase();
             elements[i].elts=(elements[i+2]||emptyElt()).elts;
@@ -931,9 +951,9 @@ function stringToElements(str){
           case "big":
             if(elements[i+2]){
               if(elements[i+2].style.sizeScale){
-                elements[i+2].style.sizeScale*=2;
+                elements[i+2].style.sizeScale*=sizeScaleFactor;
               }else{
-                elements[i+2].style.sizeScale=2;
+                elements[i+2].style.sizeScale=sizeScaleFactor;
               }
             }
             elements.splice(i,2);
@@ -941,9 +961,9 @@ function stringToElements(str){
           case "small":
             if(elements[i+2]){
               if(elements[i+2].style.sizeScale){
-                elements[i+2].style.sizeScale*=0.5;
+                elements[i+2].style.sizeScale/=sizeScaleFactor;
               }else{
-                elements[i+2].style.sizeScale=0.5;
+                elements[i+2].style.sizeScale=1/sizeScaleFactor;
               }
             }
             elements.splice(i,2);
