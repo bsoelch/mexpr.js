@@ -920,17 +920,24 @@ function finishWord(str,i0,i,state){
     tmp=tmp.substring(1);
     if(greek.has(tmp)){//greek letters
       state.elements.push(new MathElement("VAR",greek.get(tmp),undefined));
+      state.left=false;state.right=false;
       return i+1;
     }
     if(constants.has(tmp)){//constants
       state.elements.push(new MathElement("VAR",constants.get(tmp),undefined));
+      state.left=false;state.right=false;
       return i+1;
     }
     if(func_operators.has(tmp)){//constants
       state.elements.push(new MathElement("OPERATOR",func_operators.get(tmp),undefined));
+      state.left=false;state.right=false;
       return i+1;
     }
     switch(tmp){
+      case "":
+        if(state.left||state.right)
+          state.openBracket("\\");
+        break;
       case "langle":
       case "lfloor":
       case "lceil":
@@ -953,6 +960,7 @@ function finishWord(str,i0,i,state){
         state.right=true;
         break;
       default:
+        state.left=false;state.right=false;
         state.elements.push(new MathElement("FUNC",tmp,undefined));
     }
     return i+1;
@@ -1022,11 +1030,6 @@ function stringToElements(str){
           break;
         case "\\":
           i0=finishWord(str,i0,i,state)-1;//keep leading backslash
-          if(state.left||state.right){
-            state.openBracket(str[i]);
-            i0++;//consumed character
-            continue;
-          }
           break;
         case "(":
         case "[":
