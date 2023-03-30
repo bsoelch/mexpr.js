@@ -495,6 +495,9 @@ function drawBrackets(ctx,type,x0,x1,y0,y0inner,y1inner,y1){
   let h=(y1-y0);
   let hInner=(y1inner-y0inner);
   switch(type){
+    case "":
+    case " ":
+      break;
     case '(':
       ctx.beginPath();
       ctx.ellipse(x1+parenWidth,cy,2*parenWidth,hInner/Math.sqrt(3),0,2*Math.PI/3,-2*Math.PI/3);
@@ -611,8 +614,20 @@ function drawBrackets(ctx,type,x0,x1,y0,y0inner,y1inner,y1){
       ctx.lineTo((2*x0+x1)/3,y1);
       ctx.stroke();
       break;
+    case '/':
+      ctx.beginPath();
+      ctx.moveTo(x1,y0);
+      ctx.lineTo(x0,y1);
+      ctx.stroke();
+      break;
+    case '\\':
+      ctx.beginPath();
+      ctx.moveTo(x0,y0);
+      ctx.lineTo(x1,y1);
+      ctx.stroke();
+      break;
     default:
-      console.log("unsupported closing bracket: '"+type+"'");
+      console.log("unsupported bracket: '"+type+"'");
   }
 }
 let drawBoundingBoxes=false;
@@ -761,8 +776,7 @@ const superscript=new Map([
   ["⁷","7"],
   ["⁸","8"],
   ["⁹","9"],
-  ["⁰","0"],
-  ["⁻","-"]
+  ["⁰","0"]
 ]);
 const greek = new Map([
   ["Alpha", "Α"],
@@ -845,25 +859,51 @@ const func_operators = new Map([
  //TODO? more operators
 ]);
 
-function finishWord(str,i0,i,elements){
-  let tmp=str.substring(i0,i);
-  if(tmp.charAt(0)=='\\'){
-    elements.push(new MathElement("FUNC",tmp.substring(1),undefined));
-    return i+1;
+class ParserState{
+  constructor(){
+    this.elements=[];
+    this.openBrackets=[];
   }
-  i0=0;
-  while(/^[\d.]/.test(tmp[i0])){
-    i0++;
-  }
-  if(i0>0){
-    elements.push(new MathElement("NUMBER",tmp.substring(0,i0),undefined));
-  }//no else
-  if(i0<tmp.length){
-    elements.push(new MathElement("VAR",tmp.substring(i0),undefined));
-  }
-  return i+1;
-}
 
+  openBracket(left,right){
+    if(this.left){
+      this.left=false;
+      this.openBrackets.at(-1)[1]=left;
+      return;
+    }
+    if(this.right){
+      this.right=false;
+      this.elements.at(-1).content[1]=left;
+      return;
+    }
+    this.openBrackets.push([this.elements,left,right]);
+    this.elements=[];
+  }
+  closeBracket(name,chr=undefined){
+    if(chr===undefined)
+      chr=name;
+    if(this.left){
+      this.left=false;
+      this.openBrackets.at(-1)[1]=chr;
+      return;
+    }
+    if(this.right){
+      this.right=false;
+      this.elements.at(-1).content[1]=chr;
+      return;
+    }
+    if(this.openBrackets.length==0){
+      console.log("unexpected closing bracket: "+name);
+      return;
+    }
+    let bracket=this.openBrackets.pop();
+    if(bracket[2]!=name){
+      console.log("mismatched bracket: "+name+" expected:"+bracket[2]);
+    }
+    bracket[0].push(new MathElement(bracket[1]=="{"?"ROW":"PAREN",[bracket[1],chr],parseElements(this.elements)));
+    this.elements=bracket[0];
+  }
+}
 function stringToElement(str){
   let elts=stringToElements(str);
   if(elts.length==1){
@@ -872,92 +912,147 @@ function stringToElement(str){
     return new MathElement("ROW",["{","}"],elts);
   }
 }
+function finishWord(str,i0,i,state){
+  let tmp=str.substring(i0,i);
+  if(tmp.charAt(0)=='\\'){
+    tmp=tmp.substring(1);
+    if(greek.has(tmp)){//greek letters
+      state.elements.push(new MathElement("VAR",greek.get(tmp),undefined));
+      return i+1;
+    }
+    if(constants.has(tmp)){//constants
+      state.elements.push(new MathElement("VAR",constants.get(tmp),undefined));
+      return i+1;
+    }
+    if(func_operators.has(tmp)){//constants
+      state.elements.push(new MathElement("OPERATOR",func_operators.get(tmp),undefined));
+      return i+1;
+    }
+    switch(tmp){
+      case "langle":
+      case "lfloor":
+      case "lceil":
+      case "lnorm":
+        state.openBracket(["<","⌊","⌈","||"][["langle","lfloor","lceil","lnorm"].indexOf(tmp)],"\\r"+tmp.substring(1));
+        break;
+      case "rangle":
+      case "rfloor":
+      case "rceil":
+      case "rnorm":
+        state.closeBracket("\\"+tmp,[">","⌋","⌉","||"][["rangle","rfloor","rceil","rnorm"].indexOf(tmp)]);
+        break;
+      case "left":
+        state.openBrackets.push([state.elements,"?","\\right"]);
+        state.left=true;
+        state.elements=[];
+        break;
+      case "right":
+        state.closeBracket("\\"+tmp,"?");
+        state.right=true;
+        break;
+      default:
+        state.elements.push(new MathElement("FUNC",tmp,undefined));
+    }
+    return i+1;
+  }
+  i0=0;
+  while(/^[\d.]/.test(tmp[i0])){
+    i0++;
+  }
+  if(i0>0){
+    state.elements.push(new MathElement("NUMBER",tmp.substring(0,i0),undefined));
+  }//no else
+  if(i0<tmp.length){
+    state.elements.push(new MathElement("VAR",tmp.substring(i0),undefined));
+  }
+  return i+1;
+}
 function stringToElements(str){
   let i0=0;
-  let elements=[];
+  let state=new ParserState();
   for(let i=0;i<str.length;i++){
     if(/^\s/.test(str[i])){//whitespace
-      i0=finishWord(str,i0,i,elements);
+      i0=finishWord(str,i0,i,state);
     }else if(operators.includes(str[i])){
-        i0=finishWord(str,i0,i,elements);
-        elements.push(new MathElement("OPERATOR",str[i],undefined));
+      i0=finishWord(str,i0,i,state);
+      if(state.left||state.right){
+        state.openBracket(str[i]);
+        continue;
+      }
+      state.elements.push(new MathElement("OPERATOR",str[i],undefined));
     }else if(superscript.has(str[i])){
-        i0=finishWord(str,i0,i,elements);
-        let val=superscript.get(str[i]);
-        if(elements.length>0&&elements.at(-1).type=="SUPERSCRIPT"){
-          elements.at(-1).content+=val;
-        }else{
-          elements.push(new MathElement("SUPERSCRIPT",val,undefined));
-        }
+      i0=finishWord(str,i0,i,state);
+      let val=superscript.get(str[i]);
+      if(state.elements.length>0&&state.elements.at(-1).type=="SUPERSCRIPT"){
+        state.elements.at(-1).content+=val;
+      }else{
+        state.elements.push(new MathElement("SUPERSCRIPT",val,undefined));
+      }
     }else{
       switch(str[i]){
         case "~":{
-          i0=finishWord(str,i0,i,elements);
-          elements.push(new MathElement("VAR"," ",undefined));
+          i0=finishWord(str,i0,i,state);
+          if(state.left||state.right){
+            state.openBracket(str[i]);
+            continue;
+          }
+          state.elements.push(new MathElement("VAR"," ",undefined));
           }break;
         case "/":
-          i0=finishWord(str,i0,i,elements);
-          elements.push(new MathElement("FRAC",str[i],undefined));
+          i0=finishWord(str,i0,i,state);
+          if(state.left||state.right){
+            state.openBracket(str[i]);
+            continue;
+          }
+          state.elements.push(new MathElement("FRAC",str[i],undefined));
           break;
         case "^":
-          i0=finishWord(str,i0,i,elements);
-          elements.push(new MathElement("SUP",str[i],undefined));
+          i0=finishWord(str,i0,i,state);
+          state.elements.push(new MathElement("SUP",str[i],undefined));
           break;
         case "_":
-          i0=finishWord(str,i0,i,elements);
-          elements.push(new MathElement("SUB",str[i],undefined));
+          i0=finishWord(str,i0,i,state);
+          state.elements.push(new MathElement("SUB",str[i],undefined));
           break;
         case "\\":
-          i0=finishWord(str,i0,i,elements)-1;//keep leading backslash
+          i0=finishWord(str,i0,i,state)-1;//keep leading backslash
+          if(state.left||state.right){
+            state.openBracket(str[i]);
+            i0++;//consumed character
+            continue;
+          }
           break;
         case "(":
         case "[":
         case "{":
-          i0=finishWord(str,i0,i,elements);
-          let close=")]}"["([{".indexOf(str[i])]
-          let n=1;
-          for(let j=i0;j<str.length;j++){
-            if(str[j]==close){
-              n--;
-              if(n==0){
-                elements.push(new MathElement(str[i]=="{"?"ROW":"PAREN",[str[i],close],stringToElements(str.substring(i0,j))));
-                i=j;
-                i0=j+1;
-                break;
-              }
-            }else if(str[j]==str[i]){
-              n++;
-            }
-          }
-          if(n!=0){
-            console.log("missing: "+close);
-            return [];
-          }
+          i0=finishWord(str,i0,i,state);
+          state.openBracket(str[i],")]}"["([{".indexOf(str[i])]);
           break;
+        case ")":
+        case "]":
+        case "}":{
+          i0=finishWord(str,i0,i,state);
+          state.closeBracket(str[i]);
+          }break;
       }
     }
   }
   if(i0<str.length){
-    finishWord(str,i0,str.length,elements);
+    finishWord(str,i0,str.length,state);
   }
+  while(state.openBrackets.length>0){
+    let bracket=state.openBrackets.pop();
+    console.log("missing closing bracket: "+bracket[2]);
+    bracket[0].push(new MathElement(bracket[1]=="{"?"ROW":"PAREN",[bracket[1],bracket[2]],parseElements(state.elements)));
+    state.elements=bracket[0];
+  }
+  return parseElements(state.elements);
+}
+
+function parseElements(elements){
   for(let i=elements.length-1;i>=0;i--){//parse function names
     if(elements[i].type=="FUNC"){
       funcName=elements[i].content;
-      if(greek.has(funcName)){//greek letters
-        elements[i].type="VAR";
-        elements[i].content=greek.get(funcName);
-        continue;
-      }
-      if(constants.has(funcName)){//constants
-        elements[i].type="VAR";
-        elements[i].content=constants.get(funcName);
-        continue;
-      }
-      if(func_operators.has(funcName)){//constants
-        elements[i].type="OPERATOR";
-        elements[i].content=func_operators.get(funcName);
-        continue;
-      }
       switch(funcName){
         case "space":
           elements[i].type="VAR";
@@ -975,10 +1070,10 @@ function stringToElements(str){
         case "abs":
         case "floor":
         case "ceil":
-        case "angle":
         case "norm":
+        case "cases":
           elements[i].type="PAREN";
-          elements[i].content=[["{","}"],["|","|"],["⌊","⌋"],["⌈","⌉"],["<",">"],["||","||"],["[[","]]"]][["set","abs","floor","ceil","angle","norm"].indexOf(funcName)];
+          elements[i].content=[["{","}"],["|","|"],["⌊","⌋"],["⌈","⌉"],["||","||"],["{",""]][["set","abs","floor","ceil","norm","cases"].indexOf(funcName)];
           elements[i].elts=[elements[i+1]||emptyElt()];
           elements.splice(i+1,1);
           break;
@@ -1068,6 +1163,7 @@ function stringToElements(str){
           elements[i].elts=[new MathElement("NUMBER","3",undefined),elements[i+1]||emptyElt()];
           elements.splice(i+1,1);
           break;
+        //XXX \hat \bar \tilde ... decorators
         case "big":
           if(elements[i+1]){
             if(elements[i+1].style.sizeScale){
@@ -1153,12 +1249,14 @@ function stringToElements(str){
       elements.splice(i-1,1);
     }
   }
-  for(let i=elements.length-2;i>0;i--){
+  for(let i=elements.length-1;i>=0;i--){
     if((elements[i].type=="FRAC"||elements[i].type=="SUB"||elements[i].type=="SUP")&&elements[i].content){
       elements[i].elts=[elements[i-1]||emptyElt(),elements[i+1]||emptyElt()]
       elements[i].content=undefined;//clear content of parsed elements
-      elements.splice(i-1,1);
-      elements.splice(i,1);
+      if(i+1<elements.length)
+        elements.splice(i+1,1);
+      if(i>0)
+        elements.splice(i-1,1);
     }
   }
   let lines=[];
