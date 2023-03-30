@@ -234,7 +234,7 @@ function measureRecursive(ctx,mathElement,x,y,parentStyle=defaultStyle,baseSize=
         minY=maxY=0;
       mathElement.innerBox=new Box(0,minY,w,maxY);
       if(mathElement.type=="PAREN"){
-        mathElement.outerBox=new Box(-parenWidth,minY-parenHeight,w+parenWidth,maxY+parenHeight);
+        mathElement.outerBox=new Box(-parenWidth*scale,minY-parenHeight*scale,w+parenWidth*scale,maxY+parenHeight*scale);
       }else{
         mathElement.outerBox=mathElement.innerBox;
       }
@@ -555,6 +555,14 @@ function drawBrackets(ctx,type,x0,x1,y0,y0inner,y1inner,y1){
       ctx.lineTo((x0+x1)/2,y1inner);
       ctx.stroke();
       break;
+    case '||':
+      ctx.beginPath();
+      ctx.moveTo((2*x0+x1)/3,y0inner);
+      ctx.lineTo((2*x0+x1)/3,y1inner);
+      ctx.moveTo((x0+2*x1)/3,y0inner);
+      ctx.lineTo((x0+2*x1)/3,y1inner);
+      ctx.stroke();
+      break;
     case '<':
       ctx.beginPath();
       ctx.moveTo(x1,y0);
@@ -583,7 +591,26 @@ function drawBrackets(ctx,type,x0,x1,y0,y0inner,y1inner,y1){
       ctx.bezierCurveTo(x0,(y0+y1)/2,x1,y1,x0,y1);
       ctx.stroke();
       break;
-    //XXX double lined square bracket, find way of inputting brackets separately?
+    case '[[':
+      ctx.beginPath();
+      ctx.moveTo(x1,y0);
+      ctx.lineTo((2*x0+x1)/3,y0);
+      ctx.lineTo((2*x0+x1)/3,y1);
+      ctx.lineTo(x1,y1);
+      ctx.moveTo((x0+2*x1)/3,y0);
+      ctx.lineTo((x0+2*x1)/3,y1);
+      ctx.stroke();
+      break;
+    case ']]':
+      ctx.beginPath();
+      ctx.moveTo(x0,y0);
+      ctx.lineTo((x0+2*x1)/3,y0);
+      ctx.lineTo((x0+2*x1)/3,y1);
+      ctx.lineTo(x0,y1);
+      ctx.moveTo((2*x0+x1)/3,y0);
+      ctx.lineTo((2*x0+x1)/3,y1);
+      ctx.stroke();
+      break;
     default:
       console.log("unsupported closing bracket: '"+type+"'");
   }
@@ -592,7 +619,7 @@ let drawBoundingBoxes=false;
 function drawMathElementInternal(ctx,mathElement,x,y,baseSize,scale=1.0){
   ctx.fillStyle=mathElement.computedStyle.color||"#ffffff";
   ctx.strokeStyle=mathElement.computedStyle.color||"#ffffff";
-  ctx.lineWidth=Math.max(mathElement.computedStyle.sizeScale*scale*3,3);
+  ctx.lineWidth=Math.max(mathElement.computedStyle.sizeScale*scale*2,3);
   ctx.font=mathElement.computedStyle.getFont(baseSize*scale);
   let baseX=x;
   let baseY=y;
@@ -820,6 +847,10 @@ const func_operators = new Map([
 
 function finishWord(str,i0,i,elements){
   let tmp=str.substring(i0,i);
+  if(tmp.charAt(0)=='\\'){
+    elements.push(new MathElement("FUNC",tmp.substring(1),undefined));
+    return i+1;
+  }
   i0=0;
   while(/^[\d.]/.test(tmp[i0])){
     i0++;
@@ -877,8 +908,7 @@ function stringToElements(str){
           elements.push(new MathElement("SUB",str[i],undefined));
           break;
         case "\\":
-          i0=finishWord(str,i0,i,elements);
-          elements.push(new MathElement("FUNC","",undefined));
+          i0=finishWord(str,i0,i,elements)-1;//keep leading backslash
           break;
         case "(":
         case "[":
@@ -911,209 +941,210 @@ function stringToElements(str){
     finishWord(str,i0,str.length,elements);
   }
   for(let i=elements.length-1;i>=0;i--){//parse function names
-    if(elements[i].type=="FUNC"&&elements[i].content.length==0){
-      if(elements.length==i+1 || elements[i+1].type!="VAR"){//empty function name
-          continue;
-      }
-      funcName=elements[i+1].content;
+    if(elements[i].type=="FUNC"){
+      funcName=elements[i].content;
       if(greek.has(funcName)){//greek letters
-        elements[i+1].content=greek.get(funcName);
-        elements.splice(i,1);
+        elements[i].type="VAR";
+        elements[i].content=greek.get(funcName);
+        continue;
       }
       if(constants.has(funcName)){//constants
-        elements[i+1].content=constants.get(funcName);
-        elements.splice(i,1);
-      }else if(func_operators.has(funcName)){//constants
-        elements[i+1].type="OPERATOR";
-        elements[i+1].content=func_operators.get(funcName);
-        elements.splice(i,1);
-      }else{
-         switch(funcName){
-          case "space":
-            elements[i].type="VAR";
-            elements[i].content=" ";
-            elements.splice(i+1,1);
-            break;
-          case "t"://tab
-            elements[i].type="VAR";
-            elements[i].content="    ";
-            elements.splice(i+1,1);
-            break;
-          case "n"://newline
-            elements[i].type="VAR";
-            elements[i].content="\n";
-            elements.splice(i+1,1);
-            break;
-          case "set":
-          case "abs":
-          case "floor":
-          case "ceil":
-          case "angle":
-            elements[i].type="PAREN";
-            elements[i].content=[["{","}"],["|","|"],["⌊","⌋"],["⌈","⌉"],["<",">"]][["set","abs","floor","ceil","angle"].indexOf(funcName)];
-            elements[i].elts=[elements[i+2]||emptyElt()];
-            elements.splice(i+1,2);
-            break;
-          case "sup":
-          case "inf":
-          case "lim":
-          case "liminf":
-          case "limsup":
-            elements[i].type="UNDER";
-            elements[i].elts=[elements[i+1],(elements[i+2]||emptyElt())];
-            elements.splice(i+1,2);
-            break;
-          case "sum":
-          case "prod":{
-            elements[i].type="UNDEROVER";
-            let from=elements[i+2]||emptyElt();
-            let to=elements[i+3]||emptyElt();
-            let center=new MathElement("OPERATOR",(funcName=="prod")?"∏":"∑",undefined);
-            elements[i].style.sizeScale=sumScaleFactor;
-            elements[i].elts=[center,from,to];
-            elements.splice(i+1,3);
-            }break;
-          case "nary":{
-            elements[i].type="UNDEROVER";
-            let op=elements[i+2]||emptyElt();
-            let from=elements[i+3]||emptyElt();
-            let to=elements[i+4]||emptyElt();
-            elements[i].style.sizeScale=sumScaleFactor;
-            elements[i].elts=[op,from,to];
-            elements.splice(i+1,4);
-            }break;
-          case "int":{
-            elements[i].type="INTEGRAL";
-            let from=elements[i+2]||emptyElt();
-            let to=elements[i+3]||emptyElt();
-            elements[i].elts=[from,to];
-            elements.splice(i+1,3);
-            }break;
-          case "vector":
-            elements[i].type=funcName.toUpperCase();
-            elements[i].elts=(elements[i+2]||emptyElt()).elts;
-            elements.splice(i+1,2);
-            break;
-          case "matrix":{
-            elements[i].type=funcName.toUpperCase();
-            let matrix=(elements[i+2]||emptyElt()).elts;
-            let nrows=matrix.length;
-            let ncolums=0;
-            matrix.forEach((e)=>{
-              ncolums=Math.max(ncolums,(e.elts||[]).length);
-            });
-            elements[i].elts=[];
-            for(let c=0;c<ncolums;c++){
-              elements[i].elts.push([]);
-              for(let r=0;r<nrows;r++){
-                if((matrix[r].elts||[]).length<=c){
-                  elements[i].elts[c].push(emptyElt());
-                  continue;
-                }
-                elements[i].elts[c].push(matrix[r].elts[c]);
+        elements[i].type="VAR";
+        elements[i].content=constants.get(funcName);
+        continue;
+      }
+      if(func_operators.has(funcName)){//constants
+        elements[i].type="OPERATOR";
+        elements[i].content=func_operators.get(funcName);
+        continue;
+      }
+      switch(funcName){
+        case "space":
+          elements[i].type="VAR";
+          elements[i].content=" ";
+          break;
+        case "t"://tab
+          elements[i].type="VAR";
+          elements[i].content="    ";
+          break;
+        case "n"://newline
+          elements[i].type="VAR";
+          elements[i].content="\n";
+          break;
+        case "set":
+        case "abs":
+        case "floor":
+        case "ceil":
+        case "angle":
+        case "norm":
+          elements[i].type="PAREN";
+          elements[i].content=[["{","}"],["|","|"],["⌊","⌋"],["⌈","⌉"],["<",">"],["||","||"],["[[","]]"]][["set","abs","floor","ceil","angle","norm"].indexOf(funcName)];
+          elements[i].elts=[elements[i+1]||emptyElt()];
+          elements.splice(i+1,1);
+          break;
+        case "sup":
+        case "inf":
+        case "lim":
+        case "liminf":
+        case "limsup":{
+          let body=elements[i];
+          body.type="VAR";
+          elements[i]=new MathElement("UNDER",undefined,[body,(elements[i+1]||emptyElt())]);
+          elements.splice(i+1,1);
+          }break;
+        case "sum":
+        case "prod":{
+          elements[i].type="UNDEROVER";
+          let from=elements[i+1]||emptyElt();
+          let to=elements[i+2]||emptyElt();
+          let center=new MathElement("OPERATOR",(funcName=="prod")?"∏":"∑",undefined);
+          elements[i].style.sizeScale=sumScaleFactor;
+          elements[i].elts=[center,from,to];
+          elements.splice(i+1,2);
+          }break;
+        case "nary":{
+          elements[i].type="UNDEROVER";
+          let op=elements[i+1]||emptyElt();
+          let from=elements[i+2]||emptyElt();
+          let to=elements[i+3]||emptyElt();
+          elements[i].style.sizeScale=sumScaleFactor;
+          elements[i].elts=[op,from,to];
+          elements.splice(i+1,3);
+          }break;
+        case "int":{
+          elements[i].type="INTEGRAL";
+          let from=elements[i+1]||emptyElt();
+          let to=elements[i+2]||emptyElt();
+          elements[i].elts=[from,to];
+          elements.splice(i+1,2);
+          }break;
+        case "vector":
+          elements[i].type=funcName.toUpperCase();
+          elements[i].elts=(elements[i+1]||emptyElt()).elts;
+          elements.splice(i+1,1);
+          break;
+        case "matrix":{
+          elements[i].type=funcName.toUpperCase();
+          let matrix=(elements[i+1]||emptyElt()).elts;
+          let nrows=matrix.length;
+          let ncolums=0;
+          matrix.forEach((e)=>{
+            ncolums=Math.max(ncolums,(e.elts||[]).length);
+          });
+          elements[i].elts=[];
+          for(let c=0;c<ncolums;c++){
+            elements[i].elts.push([]);
+            for(let r=0;r<nrows;r++){
+              if((matrix[r].elts||[]).length<=c){
+                elements[i].elts[c].push(emptyElt());
+                continue;
               }
-              elements[i].elts[c]=new MathElement("VECTOR",undefined,elements[i].elts[c]);
+              elements[i].elts[c].push(matrix[r].elts[c]);
             }
-            elements.splice(i+1,2);
-            }break;
-          case "root":
-          case "under":
-          case "over":
-            elements[i].type=funcName.toUpperCase();
-            elements[i].elts=[elements[i+2]||emptyElt(),elements[i+3]||emptyElt()];
-            elements.splice(i+1,3);
-            break;
-          case "underover":
-          case "subsup":
-            elements[i].type=funcName.toUpperCase();
-            elements[i].elts=[elements[i+2]||emptyElt(),elements[i+3]||emptyElt(),elements[i+4]||emptyElt()];
-            elements.splice(i+1,4);
-            break;
-          case "sqrt":
-            elements[i].type="ROOT";
-            elements[i].elts=[emptyElt(),elements[i+2]||emptyElt()];
-            elements.splice(i+1,2);
-            break;
-          case "cbrt":
-            elements[i].type="ROOT";
-            elements[i].elts=[new MathElement("NUMBER","3",undefined),elements[i+2]||emptyElt()];
-            elements.splice(i+1,2);
-            break;
-          case "big":
-            if(elements[i+2]){
-              if(elements[i+2].style.sizeScale){
-                elements[i+2].style.sizeScale*=sizeScaleFactor;
-              }else{
-                elements[i+2].style.sizeScale=sizeScaleFactor;
-              }
+            elements[i].elts[c]=new MathElement("VECTOR",undefined,elements[i].elts[c]);
+          }
+          elements.splice(i+1,1);
+          }break;
+        case "root":
+        case "under":
+        case "over":
+          elements[i].type=funcName.toUpperCase();
+          elements[i].elts=[elements[i+1]||emptyElt(),elements[i+2]||emptyElt()];
+          elements.splice(i+1,2);
+          break;
+        case "underover":
+        case "subsup":
+          elements[i].type=funcName.toUpperCase();
+          elements[i].elts=[elements[i+1]||emptyElt(),elements[i+2]||emptyElt(),elements[i+3]||emptyElt()];
+          elements.splice(i+1,3);
+          break;
+        case "sqrt":
+          elements[i].type="ROOT";
+          elements[i].elts=[emptyElt(),elements[i+1]||emptyElt()];
+          elements.splice(i+1,1);
+          break;
+        case "cbrt":
+          elements[i].type="ROOT";
+          elements[i].elts=[new MathElement("NUMBER","3",undefined),elements[i+1]||emptyElt()];
+          elements.splice(i+1,1);
+          break;
+        case "big":
+          if(elements[i+1]){
+            if(elements[i+1].style.sizeScale){
+              elements[i+1].style.sizeScale*=sizeScaleFactor;
+            }else{
+              elements[i+1].style.sizeScale=sizeScaleFactor;
             }
-            elements.splice(i,2);
-            break;
-          case "small":
-            if(elements[i+2]){
-              if(elements[i+2].style.sizeScale){
-                elements[i+2].style.sizeScale/=sizeScaleFactor;
-              }else{
-                elements[i+2].style.sizeScale=1/sizeScaleFactor;
-              }
+          }
+          elements.splice(i,1);
+          break;
+        case "small":
+          if(elements[i+1]){
+            if(elements[i+1].style.sizeScale){
+              elements[i+1].style.sizeScale/=sizeScaleFactor;
+            }else{
+              elements[i+1].style.sizeScale=1/sizeScaleFactor;
             }
-            elements.splice(i,2);
-            break;
-          case "bold":
-            if(elements[i+2]){
-              elements[i+2].style.isBold=true;
-            }
-            elements.splice(i,2);
-            break;
-          case "italic":
-            if(elements[i+2]){
-              elements[i+2].style.isItalic=true;
-            }
-            elements.splice(i,2);
-            break;
-          case "plain":
-            if(elements[i+2]){
-              elements[i+2].style.isBold=false;
-              elements[i+2].style.isItalic=false;
-              elements[i+2].style.textType="normal";
-            }
-            elements.splice(i,2);
-            break;
-          //different script types
-          case "double":
-          case "script":
-          case "fraktur":
-          case "mono":
-            if(elements[i+2]){
-              elements[i+2].style.textType=funcName;
-            }
-            elements.splice(i,2);
-            break;
-          case "noanim":
-            if(elements[i+2]){
-              elements[i+2].animate=false;
-            }
-            elements.splice(i,2);
-            break;
-          case "color":
-            if(elements[i+2]&&elements[i+3]){
-              elements[i+3].style.color=elements[i+2].content;
-            }
-            elements.splice(i,3);
-            break;
-          case "id":
-            if(elements[i+2]&&elements[i+3]){
-              elements[i+3].id=elements[i+2].content;
-            }
-            elements.splice(i,3);
-            break;
-          case "class":
-            if(elements[i+2]&&elements[i+3]){
-              elements[i+3].classes.append(elements[i+2].content);
-            }
-            elements.splice(i,3);
-            break;
-        }
+          }
+          elements.splice(i,1);
+          break;
+        case "bold":
+          if(elements[i+1]){
+            elements[i+1].style.isBold=true;
+          }
+          elements.splice(i,1);
+          break;
+        case "italic":
+          if(elements[i+1]){
+            elements[i+1].style.isItalic=true;
+          }
+          elements.splice(i,1);
+          break;
+        case "plain":
+          if(elements[i+1]){
+            elements[i+1].style.isBold=false;
+            elements[i+1].style.isItalic=false;
+            elements[i+1].style.textType="normal";
+          }
+          elements.splice(i,1);
+          break;
+        //different script types
+        case "double":
+        case "script":
+        case "fraktur":
+        case "mono":
+          if(elements[i+1]){
+            elements[i+1].style.textType=funcName;
+          }
+          elements.splice(i,1);
+          break;
+        case "noanim":
+          if(elements[i+1]){
+            elements[i+1].animate=false;
+          }
+          elements.splice(i,1);
+          break;
+        case "color":
+          if(elements[i+1]&&elements[i+2]){
+            elements[i+2].style.color=elements[i+1].content;
+          }
+          elements.splice(i,2);
+          break;
+        case "id":
+          if(elements[i+1]&&elements[i+2]){
+            elements[i+2].id=elements[i+1].content;
+          }
+          elements.splice(i,2);
+          break;
+        case "class":
+          if(elements[i+1]&&elements[i+2]){
+            elements[i+2].classes.append(elements[i+1].content);
+          }
+          elements.splice(i,2);
+          break;
+        default:
+          console.log("unknown function: '"+elements[i].content+"'");
+          elements.splice(i,1);
       }
     }else if(elements[i].type=="SUPERSCRIPT"){
       elements[i].type="SUP";
