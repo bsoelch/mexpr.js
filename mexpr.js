@@ -265,7 +265,7 @@ function measureRecursive(ctx,mathElement,x,y,parentStyle=defaultStyle,baseSize=
       measureRecursive(ctx,exp,x,y,mathElement.computedStyle,baseSize,baseScale*exponentScale);
       mathElement.innerBox=new Box(
         base.outerBox.x0,
-        base.outerBox.y0-exp.outerBox.h+(exponentIndent*baseSize*scale*exponentScale),
+        base.outerBox.y0-exp.outerBox.h+Math.min(exponentIndent*baseSize*scale*exponentScale,base.outerBox.h/2,exp.outerBox.h),
         base.outerBox.x1+scale*exponentPadding+exp.outerBox.w,
         base.outerBox.y1
       );
@@ -285,7 +285,7 @@ function measureRecursive(ctx,mathElement,x,y,parentStyle=defaultStyle,baseSize=
         base.outerBox.x0,
         base.outerBox.y0,
         base.outerBox.x1+scale*exponentPadding+sub.outerBox.w,
-        base.outerBox.y1+sub.outerBox.h-(exponentIndent*baseSize*scale*exponentScale)
+        base.outerBox.y1+sub.outerBox.h-Math.min(exponentIndent*baseSize*scale*exponentScale,base.outerBox.h/2,sub.outerBox.h)
       );
       mathElement.outerBox=new Box(mathElement.innerBox.x0-powerPadding*scale,
         mathElement.innerBox.y0-powerPadding*scale,
@@ -303,9 +303,9 @@ function measureRecursive(ctx,mathElement,x,y,parentStyle=defaultStyle,baseSize=
       measureRecursive(ctx,sup,x,y,mathElement.computedStyle,baseSize,baseScale*exponentScale);
       mathElement.innerBox=new Box(
         base.outerBox.x0,
-        base.outerBox.y0-sup.outerBox.h+(exponentIndent*baseSize*scale*exponentScale),
+        base.outerBox.y0-sup.outerBox.h+Math.min(exponentIndent*baseSize*scale*exponentScale,base.outerBox.h/2,sup.outerBox.h),
         base.outerBox.x1+scale*exponentPadding+Math.max(sub.outerBox.w,sup.outerBox.w),
-        base.outerBox.y1+sub.outerBox.h-(exponentIndent*baseSize*scale*exponentScale)
+        base.outerBox.y1+sub.outerBox.h-Math.min(exponentIndent*baseSize*scale*exponentScale,base.outerBox.h/2,sub.outerBox.h)
       );
       mathElement.outerBox=new Box(mathElement.innerBox.x0-powerPadding*scale,
         mathElement.innerBox.y0-powerPadding*scale,
@@ -900,7 +900,7 @@ class ParserState{
     if(bracket[2]!=name){
       console.log("mismatched bracket: "+name+" expected:"+bracket[2]);
     }
-    bracket[0].push(new MathElement(bracket[1]=="{"?"ROW":"PAREN",[bracket[1],chr],parseElements(this.elements)));
+    bracket[0].push(new MathElement(bracket[2]=="}"?"ROW":"PAREN",[bracket[1],chr],parseElements(this.elements)));
     this.elements=bracket[0];
   }
 }
@@ -914,6 +914,8 @@ function stringToElement(str){
 }
 function finishWord(str,i0,i,state){
   let tmp=str.substring(i0,i);
+  if(tmp.length==0)
+    return i+1;
   if(tmp.charAt(0)=='\\'){
     tmp=tmp.substring(1);
     if(greek.has(tmp)){//greek letters
@@ -942,12 +944,12 @@ function finishWord(str,i0,i,state){
         state.closeBracket("\\"+tmp,[">","⌋","⌉","||"][["rangle","rfloor","rceil","rnorm"].indexOf(tmp)]);
         break;
       case "left":
-        state.openBrackets.push([state.elements,"?","\\right"]);
+        state.openBrackets.push([state.elements,"","\\right"]);
         state.left=true;
         state.elements=[];
         break;
       case "right":
-        state.closeBracket("\\"+tmp,"?");
+        state.closeBracket("\\"+tmp,"");
         state.right=true;
         break;
       default:
@@ -955,6 +957,7 @@ function finishWord(str,i0,i,state){
     }
     return i+1;
   }
+  state.left=false;state.right=false;
   i0=0;
   while(/^[\d.]/.test(tmp[i0])){
     i0++;
@@ -982,6 +985,7 @@ function stringToElements(str){
       state.elements.push(new MathElement("OPERATOR",str[i],undefined));
     }else if(superscript.has(str[i])){
       i0=finishWord(str,i0,i,state);
+      state.left=state.right=false;
       let val=superscript.get(str[i]);
       if(state.elements.length>0&&state.elements.at(-1).type=="SUPERSCRIPT"){
         state.elements.at(-1).content+=val;
@@ -993,7 +997,7 @@ function stringToElements(str){
         case "~":{
           i0=finishWord(str,i0,i,state);
           if(state.left||state.right){
-            state.openBracket(str[i]);
+            state.openBracket(" ");
             continue;
           }
           state.elements.push(new MathElement("VAR"," ",undefined));
@@ -1008,10 +1012,12 @@ function stringToElements(str){
           break;
         case "^":
           i0=finishWord(str,i0,i,state);
+          state.left=state.right=false;
           state.elements.push(new MathElement("SUP",str[i],undefined));
           break;
         case "_":
           i0=finishWord(str,i0,i,state);
+          state.left=state.right=false;
           state.elements.push(new MathElement("SUB",str[i],undefined));
           break;
         case "\\":
