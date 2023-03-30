@@ -209,10 +209,10 @@ function measureRecursive(ctx,mathElement,x,y,parentStyle=defaultStyle,baseSize=
         mathElement.outerBox=new Box(x0-opPadding*scale,y0-opPadding*scale,x1+opPadding*scale,y1+opPadding*scale);
         mathElement.textYOffset=-t_y0-y0;
       }else{
-        let y0=-(1/3)*scale*baseSize,y1=(1/3)*scale*baseSize+t_y0;
+        let y0=(1/3)*scale*baseSize-t_y1,y1=(1/3)*scale*baseSize+t_y0;
         mathElement.innerBox=new Box(x0,y0,x1,y1);
         mathElement.outerBox=new Box(x0-textPadding*scale,y0-textPadding*scale,x1+textPadding*scale,y1+textPadding*scale);
-        mathElement.textYOffset=-y0;
+        mathElement.textYOffset=(1/3)*scale*baseSize;
       }
       mathElement.x+=mathElement.innerBox.x0;
       }break;
@@ -477,6 +477,29 @@ function measureRecursive(ctx,mathElement,x,y,parentStyle=defaultStyle,baseSize=
     case "SPACE":
       mathElement.outerBox=mathElement.innerBox;
       break;
+    case "ACCENT":{
+      let content=mathElement.elts[0];
+      measureRecursive(ctx,content,x,y,mathElement.computedStyle,baseSize,baseScale);
+      mathElement.innerBox=new Box(
+        content.outerBox.x0,
+        content.outerBox.y0,
+        content.outerBox.x1,
+        content.outerBox.y1
+      );
+      let accentHeight=10;
+      switch(mathElement.content){
+        case "^":case "~":
+          accentHeight=10+0.04*content.outerBox.w;
+          break;
+        case ".": case "..":case "-":
+          accentHeight=6;
+          break;
+      }
+      mathElement.outerBox=new Box(mathElement.innerBox.x0,
+        mathElement.innerBox.y0-accentHeight*scale,
+        mathElement.innerBox.x1,
+        mathElement.innerBox.y1);
+      }break;
     case "FUNC":
     case "SUPERSCRIPT":
     case "SQRT":
@@ -490,6 +513,31 @@ function measureRecursive(ctx,mathElement,x,y,parentStyle=defaultStyle,baseSize=
   }
 }
 
+function drawAccent(ctx,type,x0,y0,x1,y1){
+  switch(type){
+    case "^":
+      ctx.beginPath();
+      ctx.moveTo(x0,y1);
+      ctx.lineTo((x0+x1)/2,y0);
+      ctx.lineTo(x1,y1);
+      ctx.stroke();
+      break;
+    case "-":
+      ctx.beginPath();
+      ctx.moveTo(x0,(y0+y1)/2);
+      ctx.lineTo(x1,(y0+y1)/2);
+      ctx.stroke();
+      break;
+    case "~":
+      ctx.beginPath();
+      ctx.moveTo(x0,(y0+2*y1)/3);
+      ctx.bezierCurveTo((x0+x1)/2,y0-(y1-y0)/2,(x0+x1)/2,y1+(y1-y0)/2,x1,(2*y0+y1)/3);
+      ctx.stroke();
+      break;
+    default:
+      console.log("unsupported accent: '"+type+"'");
+  }
+}
 function drawBrackets(ctx,type,x0,x1,y0,y0inner,y1inner,y1){
   let cy=(y0+y1)/2;
   let h=(y1-y0);
@@ -747,6 +795,11 @@ function drawMathElementInternal(ctx,mathElement,x,y,baseSize,scale=1.0){
         });
       });
       }break;
+    case "ACCENT":{
+      let base=mathElement.elts[0];
+      drawMathElementInternal(ctx,base,baseX,baseY,baseSize,baseScale);
+      drawAccent(ctx,mathElement.content,x+mathElement.innerBox.x0,y+mathElement.outerBox.y0,x+mathElement.innerBox.x1,y+mathElement.innerBox.y0);
+      }break;
     case "SQRT":
     case "FUNC":
     case "SUPERSCRIPT":
@@ -765,7 +818,7 @@ function drawMathElement(ctx,mathElement,x=100,y=100,baseSize=50,style=defaultSt
 function emptyElt(){
   return new MathElement("ROW",undefined,[]);
 }
-const operators=["+","-","*","·","×","÷",":","%","=",">","<","&","|","±",","]// '/' '^' and '_' have special functions and therefore are excluded from operators explicitly excluded
+const operators=["+","-","*","·","×","÷",":","%","=",">","<","&","|","±",",","°"]// '/' '^' and '_' have special functions and therefore are excluded from operators explicitly excluded
 const superscript=new Map([
   ["¹","1"],
   ["²","2"],
@@ -1062,6 +1115,14 @@ function parseElements(elements){
   for(let i=elements.length-1;i>=0;i--){//parse function names
     if(elements[i].type=="FUNC"){
       funcName=elements[i].content;
+      if(/^d*dot$/.test(funcName)){
+        elements[i].type="OVER";
+        let dot=new MathElement("OPERATOR",".".repeat(funcName.length-2),undefined);
+        dot.style.sizeScale=2;
+        elements[i].elts=[elements[i+1]||emptyElt(),dot];
+        elements.splice(i+1,1);
+        continue;
+      }
       switch(funcName){
         case "space":
           elements[i].type="VAR";
@@ -1172,7 +1233,24 @@ function parseElements(elements){
           elements[i].elts=[new MathElement("NUMBER","3",undefined),elements[i+1]||emptyElt()];
           elements.splice(i+1,1);
           break;
-        //XXX \hat \bar \tilde ... decorators
+        case "hat":
+          elements[i].type="ACCENT";
+          elements[i].content="^";
+          elements[i].elts=[elements[i+1]||emptyElt()];
+          elements.splice(i+1,1);
+          break;
+        case "bar":
+          elements[i].type="ACCENT";
+          elements[i].content="-";
+          elements[i].elts=[elements[i+1]||emptyElt()];
+          elements.splice(i+1,1);
+          break;
+        case "tilde":
+          elements[i].type="ACCENT";
+          elements[i].content="~";
+          elements[i].elts=[elements[i+1]||emptyElt()];
+          elements.splice(i+1,1);
+          break;
         case "big":
           if(elements[i+1]){
             if(elements[i+1].style.sizeScale){
