@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+<body>
+<canvas id="canvas" width="1980" height="1080" style="position:fixed;top:0px;left:0px;width:100vw;height:100vh;background:#222222;color:#ffffff;">
+Canvas not supported
+</canvas>
+</body>
+<script type="text/javascript" charset="UTF-8" src="./color.js"></script>
+<script type="text/javascript" charset="UTF-8" src="./mexpr.js"></script>
+<script type="text/javascript" charset="UTF-8" src="./mexprTrafo.js"></script>
+<script>
+const c=document.getElementById("canvas");
+const ctx=c.getContext("2d");
+
+let elements=[
+[stringToElement("a x^\\class pow 2+b x+c=0"),150],
+[stringToElement("x^\\class pow 2+ b/a x+c/a=0"),150],
+[stringToElement("x^\\class pow 2+ {\\class noanim 2 b}/{2a} x+c/a=0"),150],
+[stringToElement("(x+ b/{2a})^\\class pow 2-{b^\\class pow 2/{4 a^\\class pow 2}}+c/a=0"),0],
+[stringToElement("(x+ b/{2a})^\\class powL 2-{b^\\class pow 2/{4 a^\\class pow 2}}\\class noanim + c/a=0"),150],
+[stringToElement("(x+ b/{2a})^\\class powL 2={b^\\class pow 2/{4 a^\\class pow 2}}-c/a"),150],
+[stringToElement("x+ b/{2a}=±\\sqrt{{b^\\class pow 2/{4 a^\\class pow 2}}-c/a}"),150],
+[stringToElement("x=- b/{2a}±\\sqrt{{b^\\class pow 2/{4 a^\\class pow 2}}-c/a}"),150],
+[stringToElement("x={-b±\\sqrt{b^\\class pow 2-4a c}}/{2a}"),150]
+];
+//color variables
+elements.forEach((elt)=>elt[0].forEach((e)=>{if(e.type=="VAR"){e.style.color=e.content=="a"?"#00ffff":e.content=="b"?"#ff00ff":e.content=="c"?"#ff7700":undefined;}}));
+
+function animate(f,n,i=0){
+  if(i<n){
+    setTimeout(()=>{animate(f,n,i+1);},40);
+  }
+  f(i/n);
+  return n*45;
+}
+
+function animation(src,target,duration){
+  measureMathElement(ctx,src);
+  measureMathElement(ctx,target);
+  let x0=-(src.outerBox.x0+src.outerBox.x1)/2-src.x;
+  let y0=-(src.outerBox.y0+src.outerBox.y1)/2-src.y;
+  let x1=-(target.outerBox.x0+target.outerBox.x1)/2-target.x;
+  let y1=-(target.outerBox.y0+target.outerBox.y1)/2-target.y;
+  trafo=transformEquation(src,target);
+  trafo.onStart();
+  return animate((lambda)=>{
+    ctx.clearRect(0,0,1920,1080);
+    trafo.onStep(lambda);
+    trafo.drawOn(ctx,lerp(x0,x1,lambda)+c.width/2,lerp(y0,y1,lambda)+c.height/2);
+  },duration);
+}
+function animateList(elements,i=0){
+  if(i>elements.length-1)
+    return;
+  let delay=animation(elements[i][0],elements[i+1][0],elements[i][1]);
+  setTimeout(()=>{animateList(elements,i+1);},delay+100);  
+}
+function redraw(){
+  ctx.clearRect(0,0,c.width,c.height);
+  animateList(elements);
+}
+redraw();
+</script>
+</html>
