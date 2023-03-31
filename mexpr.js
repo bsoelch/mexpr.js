@@ -771,7 +771,6 @@ function drawMathElementInternal(ctx,mathElement,x,y){
     case "INTEGRAL":{
       let from=mathElement.elts[0];
       let to=mathElement.elts[1];
-      let body=mathElement.elts[2];
       let cx=x+(mathElement.innerBox.x0+mathElement.innerBox.x1)/2;
       ctx.beginPath();
       ctx.moveTo(cx-integralWidth*scale/2,y+mathElement.integralHeight/2);
@@ -1351,7 +1350,7 @@ function parseElements(elements){
           break;
         case "class":
           if(elements[i+1]&&elements[i+2]){
-            elements[i+2].classes.append(elements[i+1].content);
+            elements[i+2].classes.push(elements[i+1].content);
           }
           elements.splice(i,2);
           break;
