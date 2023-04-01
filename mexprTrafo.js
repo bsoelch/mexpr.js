@@ -138,10 +138,14 @@ function transformEquation(src,target){
     if(elements.has(id))
       elements.get(id)[1].push(e);
   });
+  let srcElements=[];
+  let targetElements=[];
   let elementTrafos=[];
   elements.forEach((e)=>{
     if(e[1].length==0)
       return;
+    e[0].forEach((src)=>{srcElements.push(src);});
+    e[1].forEach((target)=>{targetElements.push(target);});
     let n=Math.max(e[0].length,e[1].length);
     for(let i=0;i<n;i++){
       let src=e[0][Math.round(i*((e[0].length-1)/Math.max(n-1,1)))];
@@ -156,14 +160,6 @@ function transformEquation(src,target){
       }
       elementTrafos.push(new MathElementTrafo(src,target));
     }
-  });
-  let srcElements=[];
-  let targetElements=[];
-  elements.forEach((e)=>{
-    if(e[1].length==0)
-      return;
-    e[0].forEach((src)=>{srcElements.push(src);});
-    e[1].forEach((target)=>{targetElements.push(target);});
   });
   return new MathTrafo(src,target,srcElements,targetElements,elementTrafos);
 }
