@@ -47,7 +47,7 @@ function animation(src,target,duration){
   return animate((lambda)=>{
     ctx.clearRect(0,0,1920,1080);
     trafo.onStep(lambda);
-    trafo.drawOn(ctx,lerp(x0,x1,lambda)+c.width/2,lerp(y0,y1,lambda)+c.height/2);
+    trafo.drawOn(ctx,x0+c.width/2,y0+c.height/2,x1+c.width/2,y1+c.height/2);
   },duration);
 }
 function animateList(elements,i=0){

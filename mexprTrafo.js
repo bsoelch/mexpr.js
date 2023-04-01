@@ -78,6 +78,7 @@ class MathTrafo{
     this.srcElements=srcElements;
     this.targetElements=targetElements;
     this.elementTrafos=elementTrafos;
+    this.lambda=0;
   }
   onStart(){
     this.srcElements.forEach((t)=>{t.visible=false;});//XXX parameter for disabling clearing of source
@@ -88,15 +89,22 @@ class MathTrafo{
     this.targetElements.forEach((t)=>{t.visible=true;});
   }
   onStep(lambda){
+    this.lambda=lambda;
     this.src.style.opacity=1-lambda;//XXX parameters for disabling fading of equations
     this.target.style.opacity=lambda;
     this.elementTrafos.forEach((t)=>{
       t.lerpElt(lambda);
     });
   }
-  drawOn(ctx,x,y){
-    drawMathElement(ctx,this.src,x,y);
-    drawMathElement(ctx,this.target,x,y);
+  drawOn(ctx,x0,y0,x1,y1){
+    if(x1===undefined)
+      x1=x0;
+    if(y1===undefined)
+      y1=y0;
+    drawMathElement(ctx,this.src,x0,y0);
+    drawMathElement(ctx,this.target,x1,y1);
+    let x=lerp(x0,x1,this.lambda);
+    let y=lerp(y0,y1,this.lambda);
     this.elementTrafos.forEach((t)=>{
       drawMathElementInternal(ctx,t.element,x,y);
     });
