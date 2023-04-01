@@ -1332,6 +1332,12 @@ function parseElements(elements){
           }
           elements.splice(i,2);
           break;
+        case "Class":
+          if(elements[i+1]&&elements[i+2]){
+            elements[i+2].forEach((e)=>e.classes.push(elements[i+1].content));
+          }
+          elements.splice(i,2);
+          break;
         default:
           console.log("unknown function: '"+elements[i].content+"'");
           elements.splice(i,1);
