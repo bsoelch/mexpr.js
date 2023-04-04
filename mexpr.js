@@ -420,7 +420,7 @@ function measureRecursive(ctx,mathElement,x,y,parentStyle=defaultStyle){
         mathElement.innerBox.y1+integralPadding*scale);
       let cx=x+(mathElement.outerBox.x0+mathElement.outerBox.x1)/2;
       under.moveTo(Math.max(x,cx-integralWidth*scale/2-under.outerBox.w),integralHeight/2-under.outerBox.y0+underDistance*scale);
-      over.moveTo(Math.min(mathElement.innerBox.x1-over.innerBox.x1,cx+integralWidth*scale/2),-integralHeight/2-over.outerBox.y1-underDistance*scale);
+      over.moveTo(Math.min(x+mathElement.innerBox.x1-over.innerBox.x1,cx+integralWidth*scale/2),-integralHeight/2-over.outerBox.y1-underDistance*scale);
       }break;
     case "ROOT":{//root value
       let root=mathElement.elts[0];
@@ -887,6 +887,7 @@ const greek = new Map([
 const constants = new Map([
  ["infty","∞"],
  ["e","𝑒"],
+ ["emptyset","∅"],
 ]);
 const func_operators = new Map([
  ["pm","±"],
