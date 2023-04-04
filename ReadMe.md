@@ -2,6 +2,8 @@
 
 `mexpr.js` is a self-contained (*) script for rendering mathematical expressions.
 
+[Examples](https://bsoelch.github.io/mexpr.js/)
+
 mexpr can:
 
 - create `MathElement` objects from strings 
@@ -14,6 +16,7 @@ mexpr can:
 (*) when the opacity of an equations is set to values different from one`color.js` is needed to compute the translucent versions of the equation colors.
 
 ## parsing expressions
+
 the parsed text is split into words at white-spaces, operators (see list `operators` in script) as well as the following special characters:
 
 - `,` `;` end current word and add use as separator character
