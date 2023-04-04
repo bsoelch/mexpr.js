@@ -1056,6 +1056,10 @@ function stringToElements(str){
       }
     }else{
       switch(str[i]){
+        case ",":case ";":{
+          i0=finishWord(str,i0,i,state);
+          state.elements.push(new MathElement("VAR",str[i],undefined));
+          }break;
         case "~":{
           i0=finishWord(str,i0,i,state);
           if(state.left||state.right){
