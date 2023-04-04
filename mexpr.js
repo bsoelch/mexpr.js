@@ -257,11 +257,12 @@ function measureRecursive(ctx,mathElement,x,y,parentStyle=defaultStyle){
       });
       if(minY>maxY)
         minY=maxY=0;
-      mathElement.innerBox=new Box(0,minY,w,maxY);
       if(mathElement.type=="PAREN"){
+        mathElement.innerBox=new Box(0,Math.min(minY,-maxY),w,Math.max(-minY,+maxY));
         mathElement.formatedText=mathElement.content[0]+""+mathElement.content[1];
-        mathElement.outerBox=new Box(-parenWidth*scale,minY-parenHeight*scale,w+parenWidth*scale,maxY+parenHeight*scale);
+        mathElement.outerBox=new Box(-parenWidth*scale,Math.min(minY,-maxY)-parenHeight*scale,w+parenWidth*scale,Math.max(-minY,maxY)+parenHeight*scale);
       }else{
+        mathElement.innerBox=new Box(0,minY,w,maxY);
         mathElement.outerBox=mathElement.innerBox;
       }
       }break;
@@ -707,24 +708,31 @@ function drawBrackets(ctx,type,x0,x1,y0,y0inner,y1inner,y1){
   }
 }
 let drawBoundingBoxes=false;
+let drawBaseLine=false;
 function drawMathElementInternal(ctx,mathElement,x,y){
   let scale=mathElement.computedStyle.sizeScale;
   let baseX=x;
   let baseY=y;
   x+=mathElement.x;
   y+=mathElement.y;
-  ctx.fillStyle=mathElement.computedStyle.color||"#ffffff";
-  ctx.strokeStyle=mathElement.computedStyle.color||"#ffffff";
   ctx.lineWidth=Math.max(scale*2,3);
-  ctx.font=mathElement.computedStyle.getFont();
-  
   if(drawBoundingBoxes){
     ctx.strokeStyle="#ff0000";
     ctx.strokeRect(x+mathElement.outerBox.x0,y+mathElement.outerBox.y0,mathElement.outerBox.w,mathElement.outerBox.h);
     ctx.strokeStyle="#00ff00";
     ctx.strokeRect(x+mathElement.innerBox.x0,y+mathElement.innerBox.y0,mathElement.innerBox.w,mathElement.innerBox.h);
-    ctx.strokeStyle="#ffffff";
   }
+  if(drawBaseLine){
+    ctx.strokeStyle="#00ff00";
+    ctx.beginPath();
+    ctx.moveTo(x+mathElement.innerBox.x0,y);
+    ctx.lineTo(x+mathElement.innerBox.x1,y);
+    ctx.stroke();
+  }
+  ctx.fillStyle=mathElement.computedStyle.color||"#ffffff";
+  ctx.strokeStyle=mathElement.computedStyle.color||"#ffffff";
+  ctx.font=mathElement.computedStyle.getFont();
+
   if(mathElement.visible)
   switch(mathElement.type){
     case "NUMBER":
@@ -737,9 +745,9 @@ function drawMathElementInternal(ctx,mathElement,x,y){
     case "PAREN":
       if(mathElement.type=="PAREN"){
         drawBrackets(ctx,mathElement.content[0],x+mathElement.outerBox.x0,x+mathElement.innerBox.x0,
-          y+mathElement.outerBox.y0,y+mathElement.innerBox.y0,y+mathElement.innerBox.y1,y+mathElement.innerBox.y1);
+          y+mathElement.outerBox.y0,y+mathElement.innerBox.y0,y+mathElement.innerBox.y1,y+mathElement.outerBox.y1);
         drawBrackets(ctx,mathElement.content[1],x+mathElement.innerBox.x1,x+mathElement.outerBox.x1,
-          y+mathElement.outerBox.y0,y+mathElement.innerBox.y0,y+mathElement.innerBox.y1,y+mathElement.innerBox.y1);
+          y+mathElement.outerBox.y0,y+mathElement.innerBox.y0,y+mathElement.innerBox.y1,y+mathElement.outerBox.y1);
       }
       break;
     case "FRAC":// [a,b]
