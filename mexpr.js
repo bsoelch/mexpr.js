@@ -811,7 +811,7 @@ function drawMathElement(ctx,mathElement,x=100,y=100,style=defaultStyle){
 function emptyElt(){
   return new MathElement("ROW",undefined,[]);
 }
-const operators=["+","-","*","·","×","÷",":","%","=",">","<","&","|","±",",","°"]// '/' '^' and '_' have special functions and therefore are excluded from operators explicitly excluded
+const operators=["+","-","*","·","×","÷",":","%","=",">","<","&","|","±","°"]// '/' '^' and '_' have special functions and therefore are excluded from operators explicitly excluded
 const superscript=new Map([
   ["¹","1"],
   ["²","2"],
