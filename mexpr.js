@@ -510,9 +510,9 @@ function measureRecursive(ctx,mathElement,x,y,parentStyle=defaultStyle){
       let content=mathElement.elts[0];
       measureRecursive(ctx,content,x,y,mathElement.computedStyle);
       mathElement.innerBox=new Box(
-        content.outerBox.x0,
+        content.innerBox.x0,
         content.outerBox.y0,
-        content.outerBox.x1,
+        content.innerBox.x1,
         content.outerBox.y1
       );
       let accentHeight=10;
@@ -524,10 +524,11 @@ function measureRecursive(ctx,mathElement,x,y,parentStyle=defaultStyle){
           accentHeight=6;
           break;
       }
-      mathElement.outerBox=new Box(mathElement.innerBox.x0,
-        mathElement.innerBox.y0-accentHeight*scale,
-        mathElement.innerBox.x1,
-        mathElement.innerBox.y1);
+      mathElement.outerBox=new Box(
+        content.outerBox.x0,
+        content.outerBox.y0-accentHeight*scale,
+        content.outerBox.x1,
+        content.outerBox.y1);
       }break;
     case "FUNC":
     case "SUPERSCRIPT":
