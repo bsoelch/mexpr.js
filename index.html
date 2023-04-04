@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+<body style="background:#222222;color:#ffffff;">
+</body>
+<script type="text/javascript" charset="UTF-8" src="./color.js"></script>
+<script type="text/javascript" charset="UTF-8" src="./mexpr.js"></script>
+<script>
+const defaultLabels=[
+"\\cbrt {{-d/2+\\sqrt{d^\\class pow 2/4+c³/27}}} + \\cbrt{{-d/2-\\sqrt{d^\\class pow 2/4+c³/27}}}",
+"\\sum {n=1} \\infty 1/n^2 = \\pi^2/6",
+"\\Gamma (z) = \\int 0 \\infty {t^{z-1}\\e^{-t}} ~d t",
+"\\big{\\abs\\matrix{{\\color red a \\color green b}{\\color cyan c \\color yellow d}}=\\color red a \\color yellow d - \\color green b \\color cyan c}",
+"(\\vector {a_1 a_2 a_3})\\times (\\vector {b_1 b_2 b_3}) = (\\vector {{a_2 b_3 - a_3 b_2}{a_3 b_1 - a_1 b_3}{a_1 b_2 - a_2 b_1}})",
+"\\italic max~\\set{x,y}=\\cases{ x \\t x > y \\n y \\t else}",
+"\\nary \\intersection {n\\in \\double N} {} (0,1/n) = \\emptyset",
+"\\set{\\left ]-1,1\\right[ , \\left [ 0,\\infty \\right [} \\in \\script P(\\fraktur B(\\double R \\cup \\set{\\pm\\infty}))",
+];
+for(let i=0;i<defaultLabels.length;i++){//build display boxes
+  document.body.innerHTML+=
+  "<input style=\"position:relative;background:#00000000;color:#ffffff;font-size:30px;margin:10px;margin-left: 2%;margin-right: 2%;width:96%;\" type=\"text\" "+
+  "id=\"content"+i+"\" contenteditable=\"true\"/>"+
+  "<canvas id=\"canvas"+i+"\" width=\"1980\" height=\"1080\" style=\"position:relative;margin-left: 5%;margin-right: 5%;width:90%;aspect-ratio:16/9;background:#000000;\">"+
+  "Canvas not supported"+
+  "</canvas>"
+}
+
+const canvas=[];
+const ctx=[];
+const label=[];
+for(let i=0;i<defaultLabels.length;i++){
+  canvas.push(document.getElementById("canvas"+i));
+  ctx.push(canvas[i].getContext("2d"));
+  label.push(document.getElementById("content"+i));
+  label[i].addEventListener("keyup", function(event) {
+      if (event.key === "Enter") {
+        redraw(i);
+      }
+  });
+  if(!label[i].value)
+    label[i].value=defaultLabels[i];
+  redraw(i);
+}
+
+function drawCentered(c,ctx,eq){
+  let style=new MathElementStyle(defaultStyle);
+  style.sizeScale=2.5;
+  measureMathElement(ctx,eq,style);
+  let x0=-(eq.outerBox.x0+eq.outerBox.x1)/2-eq.x;
+  let y0=-(eq.outerBox.y0+eq.outerBox.y1)/2-eq.y;
+  drawMathElement(ctx,eq,x0+c.width/2,y0+c.height/2,style);
+}
+function redraw(i){
+  let eq=stringToElement(label[i].value);
+  ctx[i].clearRect(0,0,canvas[i].width,canvas[i].height);
+  drawCentered(canvas[i],ctx[i],eq);
+}
+</script>
+</html>
