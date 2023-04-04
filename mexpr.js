@@ -460,7 +460,7 @@ function measureRecursive(ctx,mathElement,x,y,parentStyle=defaultStyle){
       }break;
     case "MATRIX":{
       let w=0;
-      let rowHeights=new Array(mathElement.elts[0].elts.length).fill(0);
+      let rowHeights=new Array(mathElement.elts[0].elts.length).fill(new Array(2).fill(0));
       mathElement.elts.forEach((e)=>{
         let maxW=0,h=matrixPaddingY*(e.elts.length-1)*scale;
         for(let r=0;r<e.elts.length;r++){
@@ -468,19 +468,19 @@ function measureRecursive(ctx,mathElement,x,y,parentStyle=defaultStyle){
           measureRecursive(ctx,f,x,y,mathElement.computedStyle);
           maxW=Math.max(f.outerBox.w,maxW);
           h+=f.outerBox.h;
-          rowHeights[r]=Math.max(rowHeights[r],f.outerBox.h);
+          rowHeights[r][0]=Math.min(rowHeights[r][0],f.outerBox.y0);
+          rowHeights[r][1]=Math.max(rowHeights[r][1],f.outerBox.y1);
         };
         e.innerBox=new Box(0,-h/2,maxW,h/2);
         w+=maxW+matrixPaddingX*scale;
       });
       w-=matrixPaddingX*scale;//remove padding after last element
       let h=matrixPaddingY*(rowHeights.length-1)*scale;
-      rowHeights.forEach((e)=>{h+=e;});
+      rowHeights.forEach((e)=>{e.push(e[1]-e[0]);h+=e[2];});
       mathElement.elts.forEach((e)=>{
         e.innerBox=new Box(e.innerBox.x0,-h/2,e.innerBox.x1,h/2);
         e.outerBox=e.innerBox;
       });
-      mathElement.rowHeights=rowHeights;
       mathElement.innerBox=new Box(0,-h/2,w,h/2);
       mathElement.outerBox=new Box(mathElement.innerBox.x0-matrixPadding*scale,
         mathElement.innerBox.y0-matrixPadding*scale,
@@ -493,9 +493,9 @@ function measureRecursive(ctx,mathElement,x,y,parentStyle=defaultStyle){
         let h=mathElement.innerBox.y0;
         for(let r=0;r<e.elts.length;r++){
           let f=e.elts[r];
-          let cy=y+h+mathElement.rowHeights[r]/2;
-          f.moveTo(cx-(f.outerBox.x0+f.outerBox.x1)/2,cy-(f.outerBox.y0+f.outerBox.y1)/2);
-          h+=mathElement.rowHeights[r]+matrixPaddingY*scale;
+          let y0=y+h+rowHeights[r][2];
+          f.moveTo(cx-(f.outerBox.x0+f.outerBox.x1)/2,y0-f.outerBox.y1);
+          h+=rowHeights[r][2]+matrixPaddingY*scale;
         }
         w+=e.outerBox.w+matrixPaddingX*scale;
       });
@@ -802,7 +802,7 @@ function drawMathElementInternal(ctx,mathElement,x,y){
   });
 }
 function drawMathElement(ctx,mathElement,x=100,y=100,style=defaultStyle){
-  measureMathElement(ctx,mathElement,defaultStyle);
+  measureMathElement(ctx,mathElement,style);
   drawMathElementInternal(ctx,mathElement,x,y);
 }
 
