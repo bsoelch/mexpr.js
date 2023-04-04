@@ -1238,7 +1238,6 @@ function parseElements(elements){
           elements.splice(i+1,2);
           break;
         case "underover":
-        case "subsup":
           elements[i].type=funcName.toUpperCase();
           elements[i].elts=[elements[i+1]||emptyElt(),elements[i+2]||emptyElt(),elements[i+3]||emptyElt()];
           elements[i].elts[1].style.updateSizeScale(underScale);
