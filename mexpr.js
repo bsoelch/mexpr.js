@@ -460,7 +460,7 @@ function measureRecursive(ctx,mathElement,x,y,parentStyle=defaultStyle){
       }break;
     case "MATRIX":{
       let w=0;
-      let rowHeights=new Array(mathElement.elts[0].elts.length).fill(new Array(2).fill(0));
+      let rowHeights=new Array(mathElement.elts[0].elts.length);
       mathElement.elts.forEach((e)=>{
         let maxW=0,h=matrixPaddingY*(e.elts.length-1)*scale;
         for(let r=0;r<e.elts.length;r++){
@@ -468,6 +468,8 @@ function measureRecursive(ctx,mathElement,x,y,parentStyle=defaultStyle){
           measureRecursive(ctx,f,x,y,mathElement.computedStyle);
           maxW=Math.max(f.outerBox.w,maxW);
           h+=f.outerBox.h;
+          if(rowHeights[r]===undefined)
+            rowHeights[r]=new Array(3).fill(0);
           rowHeights[r][0]=Math.min(rowHeights[r][0],f.outerBox.y0);
           rowHeights[r][1]=Math.max(rowHeights[r][1],f.outerBox.y1);
         };
@@ -476,7 +478,7 @@ function measureRecursive(ctx,mathElement,x,y,parentStyle=defaultStyle){
       });
       w-=matrixPaddingX*scale;//remove padding after last element
       let h=matrixPaddingY*(rowHeights.length-1)*scale;
-      rowHeights.forEach((e)=>{e.push(e[1]-e[0]);h+=e[2];});
+      rowHeights.forEach((e)=>{e[2]=(e[1]-e[0]);h+=e[2];});
       mathElement.elts.forEach((e)=>{
         e.innerBox=new Box(e.innerBox.x0,-h/2,e.innerBox.x1,h/2);
         e.outerBox=e.innerBox;
@@ -493,8 +495,8 @@ function measureRecursive(ctx,mathElement,x,y,parentStyle=defaultStyle){
         let h=mathElement.innerBox.y0;
         for(let r=0;r<e.elts.length;r++){
           let f=e.elts[r];
-          let y0=y+h+rowHeights[r][2];
-          f.moveTo(cx-(f.outerBox.x0+f.outerBox.x1)/2,y0-f.outerBox.y1);
+          let y0=y+h-rowHeights[r][0];
+          f.moveTo(cx-(f.outerBox.x0+f.outerBox.x1)/2,y0);
           h+=rowHeights[r][2]+matrixPaddingY*scale;
         }
         w+=e.outerBox.w+matrixPaddingX*scale;
